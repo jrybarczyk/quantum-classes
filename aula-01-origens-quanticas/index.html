@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Laboratório interativo da aula 1: corpo negro, efeito fotoelétrico, Compton e ondas de matéria.">
+  <title>Laboratório das Origens Quânticas</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#workspace">Ir para o experimento</a>
+  <main class="app-shell">
+    <header class="topbar">
+      <div class="brand" aria-label="Biocomplexity Lab"><span><b>BIOCOMPLEXITY</b><small>LAB · IB/UNESP</small></span></div>
+      <div class="heading">
+        <p class="eyebrow">Mecânica Quântica · Aula 1</p>
+        <h1>Laboratório das Origens Quânticas</h1>
+        <p>Quatro experiências, uma ruptura com a física clássica.</p>
+      </div>
+      <div class="status" aria-live="polite"><span>Estação atual</span><strong id="statusTitle">Corpo negro</strong><small id="statusDetail">T = 5 800 K</small></div>
+    </header>
+
+    <nav class="tabs" aria-label="Estações" role="tablist">
+      <button class="active" data-view="blackbody" role="tab" aria-selected="true"><b>01</b><span>Corpo<br>negro</span></button>
+      <button data-view="photoelectric" role="tab" aria-selected="false"><b>02</b><span>Efeito<br>fotoelétrico</span></button>
+      <button data-view="compton" role="tab" aria-selected="false"><b>03</b><span>Efeito<br>Compton</span></button>
+      <button data-view="matter" role="tab" aria-selected="false"><b>04</b><span>de Broglie<br>e Bragg</span></button>
+    </nav>
+
+    <section id="workspace" class="workspace">
+      <aside class="controls" aria-label="Controles da estação">
+        <div class="panel-title"><h2>Preparação</h2><button id="resetBtn" type="button">Reiniciar</button></div>
+
+        <section class="view-controls active" data-controls="blackbody">
+          <h3>Forno ideal</h3>
+          <p class="equation">u<sub>ν</sub> = 8πhν³ / [c³(e<sup>hν/kT</sup>−1)]</p>
+          <label><span>Temperatura, T</span><output id="temperatureOut"></output><input id="temperature" type="range" min="300" max="12000" step="50" value="5800"></label>
+          <label class="select"><span>Escala horizontal</span><select id="spectrumAxis"><option value="dimensionless">x = hν/kT</option><option value="wavelength">comprimento de onda</option></select></label>
+          <div class="presets"><button data-set="temperature" data-value="300">Ambiente</button><button data-set="temperature" data-value="5800">Sol</button></div>
+          <p class="hint">Mude a temperatura e observe separadamente a forma universal e o deslocamento do pico.</p>
+        </section>
+
+        <section class="view-controls" data-controls="photoelectric">
+          <h3>Superfície metálica</h3>
+          <p class="equation">K<sub>máx</sub> = hν − Φ = eV<sub>s</sub></p>
+          <label><span>Frequência, ν</span><output id="frequencyOut"></output><input id="frequency" type="range" min="1" max="12" step="0.005" value="7"></label>
+          <label><span>Função trabalho, Φ</span><output id="workFunctionOut"></output><input id="workFunction" type="range" min="1.5" max="5.5" step="0.001" value="2.30"></label>
+          <label><span>Intensidade relativa</span><output id="intensityOut"></output><input id="intensity" type="range" min="0.1" max="2" step="0.05" value="1"></label>
+          <div class="presets"><button data-set="frequency,workFunction" data-value="8.565,1.943">Potássio: λ=350 nm, Φ=1,943 eV</button><button data-set="workFunction" data-value="2.0">Φ=2,0 eV (slide)</button></div>
+          <p class="hint">Teste primeiro uma frequência abaixo do corte; depois aumente apenas a intensidade. O preset do potássio reproduz o exemplo resolvido da aula (Kmáx≈1,60 eV).</p>
+        </section>
+
+        <section class="view-controls" data-controls="compton">
+          <h3>Espalhamento de raios X</h3>
+          <p class="equation">Δλ = (h/m<sub>e</sub>c)(1−cos θ)</p>
+          <label><span>Comprimento incidente</span><output id="comptonWavelengthOut"></output><input id="comptonWavelength" type="range" min="20" max="200" step="1" value="71"></label>
+          <label><span>Ângulo, θ</span><output id="comptonAngleOut"></output><input id="comptonAngle" type="range" min="0" max="180" step="1" value="90"></label>
+          <div class="presets"><button data-set="comptonAngle" data-value="0">0°</button><button data-set="comptonAngle" data-value="90">90°</button><button data-set="comptonAngle" data-value="180">180°</button></div>
+          <p class="hint">Compare 0°, 90° e 180°. Qual grandeza independe de λ?</p>
+        </section>
+
+        <section class="view-controls" data-controls="matter">
+          <h3>Elétron e cristal</h3>
+          <p class="equation">λ = h/p&nbsp;;&nbsp; 2d sen θ = nλ</p>
+          <label><span>Tensão aceleradora</span><output id="voltageOut"></output><input id="voltage" type="range" min="10" max="10000" step="10" value="150"></label>
+          <label><span>Espaçamento, d</span><output id="spacingOut"></output><input id="spacing" type="range" min="0.08" max="0.40" step="0.005" value="0.20"></label>
+          <label class="select"><span>Ordem de Bragg</span><select id="braggOrder"><option>1</option><option>2</option><option>3</option></select></label>
+          <div class="presets"><button data-set="voltage" data-value="54">54 V</button><button data-set="voltage" data-value="150">150 V</button><button data-set="voltage" data-value="5000">5 kV</button></div>
+          <p class="hint">Procure quando λ e d têm a mesma ordem de grandeza.</p>
+        </section>
+      </aside>
+
+      <section class="stage" aria-label="Visualizações">
+        <article class="canvas-panel">
+          <div class="chart-heading"><div><h2 id="mainTitle">Planck versus Rayleigh–Jeans</h2><p id="mainSubtitle">mesmo limite em baixas frequências, futuros incompatíveis</p></div><div id="legend" class="legend"></div></div>
+          <canvas id="mainCanvas" width="1100" height="590" aria-label="Visualização principal"></canvas>
+          <p id="caption" class="caption"></p>
+        </article>
+      </section>
+
+      <aside class="analysis" aria-label="Análise quantitativa">
+        <section class="predict"><span>Preveja antes de mover</span><p id="prediction"></p></section>
+        <section><h2>Conta aberta</h2><div id="calculation" class="calculation"></div></section>
+        <section><h2>Leituras</h2><dl id="metrics"></dl></section>
+        <section class="concept"><h2 id="conceptTitle">Ideia física</h2><p id="conceptText"></p></section>
+        <section><h2>Investigue</h2><ol id="prompts"></ol></section>
+      </aside>
+    </section>
+
+    <footer><span>Biocomplexity Lab · material didático</span><span>Instituto de Biociências de Botucatu — UNESP · Depto. de Biofísica e Farmacologia · Prof. Assoc. José L. Rybarczyk-Filho</span></footer>
+  </main>
+  <script src="physics.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

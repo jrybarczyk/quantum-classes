@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Aplicacoes interativas da disciplina de Mecanica Quantica, IB/UNESP.">
+<title>Mecânica Quântica · Aplicações interativas</title>
+<style>
+:root {
+  color-scheme: light;
+  --green: #83c44e; --green-dark: #619b60; --gray-dark: #6f7171;
+  --ink: #26312d; --muted: #66726d; --paper: #f6f8f4; --line: #d9dfda;
+}
+* { box-sizing: border-box; }
+html { background: #e9ede8; }
+body { margin: 0; min-width: 320px; padding: 0 16px; color: var(--ink);
+  background: radial-gradient(circle at 10% 0, #fafff6 0, transparent 32rem), var(--paper);
+  font-family: Ubuntu, system-ui, sans-serif; }
+.folha { width: min(1100px, 100%); margin: auto; padding-block: 34px 26px; }
+.marca { display: grid; line-height: 1; color: var(--green-dark); }
+.marca b { font-size: .9rem; letter-spacing: .06em; }
+.marca small { margin-top: 5px; color: var(--gray-dark); font-size: .62rem; letter-spacing: .12em; }
+.sobrancelha { margin: 26px 0 5px; color: var(--green-dark); font-size: .74rem;
+  font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+h1 { margin: 0; font-family: "Ubuntu Titling", Ubuntu, system-ui, sans-serif;
+  font-size: clamp(1.9rem, 3.4vw, 3rem); line-height: .98; letter-spacing: -.035em;
+  text-transform: uppercase; }
+.abertura { max-width: 62ch; margin: 12px 0 0; color: var(--muted); font-size: .92rem; line-height: 1.55; }
+.grade { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 10px; margin-top: 26px; }
+.cartao { display: flex; align-items: flex-start; gap: 14px; padding: 16px;
+  border: 1px solid var(--line); border-left: 4px solid var(--green); border-radius: 9px;
+  background: rgba(255,255,255,.94); box-shadow: 0 7px 24px rgba(45,62,53,.05);
+  color: inherit; text-decoration: none; }
+.cartao:hover, .cartao:focus-visible { border-color: var(--green-dark); background: #f4faef; }
+.cartao b { color: var(--green-dark); font-size: 1.5rem; line-height: 1; }
+.cartao span { display: grid; gap: 6px; font-size: .72rem; color: var(--muted); line-height: 1.45; }
+.cartao strong { color: var(--ink); font-size: .95rem; }
+.aviso { margin-top: 26px; padding: 13px 15px; border: 1px solid rgba(233,162,59,.4);
+  border-radius: 8px; background: rgba(233,162,59,.08); color: var(--muted);
+  font-size: .74rem; line-height: 1.5; }
+footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 18px;
+  margin-top: 26px; padding-top: 14px; border-top: 1px solid var(--line);
+  color: var(--gray-dark); font-size: .65rem; line-height: 1.45; }
+</style>
+</head>
+<body>
+<main class="folha">
+  <div class="marca"><b>BIOCOMPLEXITY</b><small>LAB · IB/UNESP</small></div>
+  <p class="sobrancelha">Mecânica Quântica · Física Médica</p>
+  <h1>Aplicações interativas</h1>
+  <p class="abertura">Cada aula tem um laboratório próprio, com previsão antes da
+    medida, conta aberta e leituras registráveis. Tudo roda no navegador, sem
+    instalação e sem enviar dados para fora do seu computador.</p>
+
+  <nav class="grade">
+      <a class="cartao" href="aula-01-origens-quanticas/">
+        <b>01</b>
+        <span><strong>Laboratório das Origens Quânticas</strong>Corpo negro, efeito fotoeletrico, efeito Compton e ondas de materia.</span>
+      </a>
+      <a class="cartao" href="aula-02-funcao-onda/">
+        <b>02</b>
+        <span><strong>Estúdio da Função de Onda</strong>Onda plana, pacote gaussiano, regra de Born e equacao de Schrodinger.</span>
+      </a>
+      <a class="cartao" href="aula-03-normalizacao-corrente/">
+        <b>03</b>
+        <span><strong>Aula 3 · Normalização e incerteza</strong>Normalizacao, corrente de probabilidade e relacoes de incerteza.</span>
+      </a>
+      <a class="cartao" href="aula-04-estados-estacionarios/">
+        <b>04</b>
+        <span><strong>Aula 4 · Estados estacionários</strong>Separacao temporal, estados estacionarios e problema de autovalor.</span>
+      </a>
+      <a class="cartao" href="aula-05-poco-infinito/">
+        <b>05</b>
+        <span><strong>Aula 5 · Poço infinito</strong>Espectro, autofuncoes, ortogonalidade e evolucao na caixa.</span>
+      </a>
+      <a class="cartao" href="aula-06-expansao-medidas/">
+        <b>06</b>
+        <span><strong>Aula 6 · Expansão e medidas</strong>Completeza, expansao em autoestados e medida de energia.</span>
+      </a>
+      <a class="cartao" href="aula-07-degraus-barreiras/">
+        <b>07</b>
+        <span><strong>Aula 7 · Degraus e barreiras</strong>Degrau e barreira de potencial, reflexao, transmissao e tunelamento.</span>
+      </a>
+  </nav>
+
+  <p class="aviso">Use o roteiro impresso da aula junto com a aplicação. A regra de
+    trabalho é sempre a mesma: preveja antes de mover o controle, altere uma
+    variável por vez e anote cada leitura com a sua unidade.</p>
+
+  <footer>
+    <span>Biocomplexity Lab · material didático</span>
+    <span>Instituto de Biociências de Botucatu — UNESP · Depto. de Biofísica e
+      Farmacologia · Prof. Assoc. José L. Rybarczyk-Filho</span>
+  </footer>
+</main>
+</body>
+</html>
