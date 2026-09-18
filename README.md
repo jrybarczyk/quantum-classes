@@ -33,6 +33,15 @@ O arquivo `.nojekyll` desativa o Jekyll no GitHub Pages. Sem ele a pasta
 `_shared` seria ignorada por começar com sublinhado, e as aulas 3 a 6
 deixariam de carregar.
 
+## Licença
+
+Este material está sob a licença [Creative Commons Atribuição-NãoComercial-
+CompartilhaIgual 4.0 Internacional (CC BY-NC-SA 4.0)](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.pt-br).
+Você pode usar, copiar e redistribuir, e também adaptar, desde que dê o crédito
+ao autor e ao IB/UNESP, não faça uso comercial e distribua as versões
+modificadas sob esta mesma licença, indicando o que mudou. O texto completo
+está em [`LICENSE`](LICENSE).
+
 ---
 
 Prof. Assoc. José L. Rybarczyk-Filho · Depto. de Biofísica e Farmacologia · IB/UNESP
