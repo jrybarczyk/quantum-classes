@@ -15,9 +15,11 @@
   let counts = Array(6).fill(0);
   let basisKind = "gaussian";
   let modeCount = 6;
+  let uncertaintyKind = "gaussian";
+  let momentumCache = { key: "", values: [] };
 
   const fmt = (value, digits = 3) => Number(value).toLocaleString("pt-BR", { maximumFractionDigits: digits, minimumFractionDigits: digits });
-  const active = id => document.querySelector(`[data-controls="${view}"] #${id}`) || $(id);
+  const active = id => $(`${view}-${id}`) || document.querySelector(`[data-controls="${view}"] #${id}`) || $(id);
   const value = id => Number(active(id).value);
   const samples = (from, to, amount, fn) => Array.from({ length: amount }, (_, i) => {
     const x = from + i * (to - from) / (amount - 1);
@@ -29,8 +31,8 @@
   const controls = {
     aula03: {
       normalization: [["Largura σ", .2, 1.6, .02, .66], ["meia largura do intervalo", .2, 2.5, .02, 1], ["amplitude A/A₀", .25, 1.75, .01, 1]],
-      current: [["Largura σ", .25, 1.4, .02, .55], ["velocidade v", -1.5, 1.5, .05, .7], ["tempo t", 0, TAU, .01, 0]],
-      uncertainty: [["Δx = σ", .2, 1.6, .02, .55], ["momento médio p₀/ℏ", -2, 2, .05, 0], ["fase (não altera dispersão)", 0, TAU, .01, 0]]
+      current: [["largura inicial σ₀", .5, 2, .02, 1], ["momento k₀ (v = ħk₀/m)", -2, 2, .05, 1.5], ["tempo t", 0, 6, .02, 0]],
+      uncertainty: [["Δx (igual nos três estados)", .3, 1.2, .02, .6], ["momento médio p₀/ℏ", -2, 2, .05, 0], ["fase quadrática β (chirp)", -1, 1, .02, 0]]
     },
     aula04: {
       separation: [["nível n", 1, 6, 1, 2], ["amplitude", .3, 1.5, .02, 1], ["tempo reduzido τ", 0, TAU, .01, .55]],
@@ -83,7 +85,7 @@
     return { ctx, width, height };
   }
 
-  function axes(target, xMin, xMax, yMin, yMax, xLabel, yLabel) {
+  function axes(target, xMin, xMax, yMin, yMax, xLabel, yLabel, yDigits = 1) {
     const { ctx, width, height } = target;
     const left = 58, right = width - 20, top = 24, bottom = height - 43;
     const X = x => left + (x - xMin) * (right - left) / (xMax - xMin);
@@ -97,7 +99,7 @@
       ctx.beginPath(); ctx.moveTo(X(x), top); ctx.lineTo(X(x), bottom); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(left, Y(y)); ctx.lineTo(right, Y(y)); ctx.stroke();
       ctx.fillStyle = C.gray; ctx.textAlign = "center"; ctx.fillText(fmt(x, 1), X(x), bottom + 15);
-      ctx.textAlign = "right"; ctx.fillText(fmt(y, 1), left - 7, Y(y) + 3);
+      ctx.textAlign = "right"; ctx.fillText(fmt(y, yDigits), left - 7, Y(y) + 3);
     }
     ctx.strokeStyle = C.gray;
     ctx.beginPath(); ctx.moveTo(left, bottom); ctx.lineTo(right, bottom); ctx.moveTo(left, top); ctx.lineTo(left, bottom); ctx.stroke();
@@ -157,25 +159,88 @@
       line(chart2, samples(0, 1.8, 180, x => x * x), C.gold); line(chart2, [{ x: 0, y: 1 }, { x: 1.8, y: 1 }], C.gray, [6, 4]);
       renderText({ title: "Oficina de normalização", subtitle: "a área responde como A²", caption: "A faixa verde é o intervalo escolhido; a curva muda de área quando A ≠ A₀.", secondaryTitle: "Teste de normalização", secondarySubtitle: "a norma é quadrática na amplitude", secondaryCaption: "O cruzamento em A/A₀ = 1 marca o estado normalizado.", prediction: "Dobrar a amplitude dobra ou quadruplica a norma?", calculation: `∫|AΨ₀|²dx = A²/A₀²<br><b>norma = ${fmt(area)} · P(−b≤x≤b) = ${fmt(probability * area)}</b>`, metrics: [["norma", fmt(area)], ["P no intervalo", fmt(probability * area)], ["densidade normalizada?", Math.abs(t - 1) < .015 ? "sim" : "não"]], concept: "Normalizar é ajustar uma amplitude global para que a área de |Ψ|² seja exatamente um.", prompts: ["Ajuste A até a norma valer 1.", "Mude σ sem mudar A e observe a área.", "Explique por que a probabilidade do intervalo depende de b/σ."], legend: [[C.green, "|Ψ|²"], [C.lime, "intervalo"]] });
     } else if (view === "current") {
-      const center = b * t;
-      const rho = x => P.gaussianDensity(x, a, center);
-      const chart = axes(main, -5, 5, 0, Math.max(.65, 1 / (Math.sqrt(2 * Math.PI) * a) * 1.15), "posição x", "densidade");
-      chart.ctx.fillStyle = "rgba(69,123,157,.12)"; chart.ctx.fillRect(chart.X(-1), chart.top, chart.X(1) - chart.X(-1), chart.bottom - chart.top);
-      line(chart, samples(-5, 5, 320, rho), C.green);
-      const jLeft = b * rho(-1), jRight = b * rho(1), rate = P.continuityRate(jLeft, jRight);
-      const chart2 = axes(secondary, -5, 5, -Math.max(.45, Math.abs(b) / (Math.sqrt(2 * Math.PI) * a)), Math.max(.45, Math.abs(b) / (Math.sqrt(2 * Math.PI) * a)), "posição x", "J(x)");
-      line(chart2, samples(-5, 5, 320, x => b * rho(x)), C.blue);
-      const residual = samples(-3, 3, 240, x => ({x, y: P.continuityResidual(x, a, center, b)}));
-      const maxResidual = Math.max(...residual.map(point => Math.abs(point.y)));
-      line(chart2, residual, C.gold, [5, 4]);
-      renderText({ title: "Corrente de probabilidade", subtitle: "um pacote gaussiano atravessa [−1,1]", caption: "A região azul é o volume de controle. A densidade se desloca com velocidade v.", secondaryTitle: "Fluxo e continuidade local", secondarySubtitle: "J(x,t)=vρ(x,t)", secondaryCaption: "A linha dourada mostra ∂ρ/∂t+∂J/∂x; ela deve permanecer próxima de zero.", prediction: "Quando J(−1) > J(1), a probabilidade dentro da faixa cresce ou diminui?", calculation: `J=vρ<br>∂ρ/∂t + ∂J/∂x = 0<br><b>dP/dt = J(−1)−J(1) = ${fmt(rate)}</b>`, metrics: [["J(−1)", fmt(jLeft)], ["J(1)", fmt(jRight)], ["dP/dt", fmt(rate)], ["erro máximo", maxResidual.toExponential(2)]], concept: "A equação da continuidade liga a mudança de probabilidade dentro de uma região ao fluxo em suas fronteiras; o resíduo numérico verifica a conservação ponto a ponto.", prompts: ["Inverta o sinal de v.", "Pare o pacote com v=0.", "Confirme que o resíduo permanece próximo de zero."], legend: [[C.green, "ρ(x,t)"], [C.blue, "J(x,t)"], [C.gold, "resíduo"]] });
+      // Pacote livre exato (ħ = m = 1); J sai de Ψ por J = Im(Ψ*∂ₓΨ).
+      const sigma0 = a, k0 = b, x0 = P.startPosition(k0), tMax = Number(active("tertiary").max), A = -1, B = 1;
+      const rho = x => P.freePacket(x, t, sigma0, k0, x0).density, J = x => P.currentFromPsi(x, t, sigma0, k0, x0);
+      const jLeft = J(A), jRight = J(B), rate = P.continuityRate(jLeft, jRight);
+      const P_ab = time => P.packetInterval(A, B, time, sigma0, k0, x0);
+      const dt = 1e-3, rateNumeric = (P_ab(t + dt) - P_ab(Math.max(0, t - dt))) / (t + dt - Math.max(0, t - dt));
+      const xs = samples(-10, 10, 161, x => x), times = samples(0, tMax, 13, x => x);
+      const jScale = Math.max(.05, ...times.flatMap(time => xs.map(p => Math.abs(P.currentFromPsi(p.x, time.x, sigma0, k0, x0))))) * 1.15;
+      const rhoTop = 1 / (Math.sqrt(2 * Math.PI) * sigma0) * 1.15;
+      const residual = Math.max(...samples(-6, 6, 121, x => Math.abs(P.continuityResidual(x, t, sigma0, k0, x0))).map(p => p.y));
+      let total = 0; for (let x = -30; x <= 30; x += .02) total += J(x) * .02;
+      // painel principal: ρ em cima, J embaixo, mesmo eixo x
+      const half = main.height * .56, ctx = main.ctx;
+      const top = axes({ ctx, width: main.width, height: half }, -10, 10, 0, rhoTop, "", "ρ(x,t)", 2);
+      ctx.fillStyle = "rgba(69,123,157,.12)"; ctx.fillRect(top.X(A), top.top, top.X(B) - top.X(A), top.bottom - top.top);
+      line(top, samples(-10, 10, 400, rho), C.green);
+      const arrowAt = (x, current, entering) => {
+        const length = Math.max(16, Math.min(60, 60 * Math.abs(current) / jScale)), y = top.top + 14, dir = Math.sign(current);
+        if (Math.abs(current) < .02 * jScale) return;
+        ctx.strokeStyle = ctx.fillStyle = entering ? C.green : C.red; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(top.X(x) - dir * length / 2, y); ctx.lineTo(top.X(x) + dir * length / 2, y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(top.X(x) + dir * length / 2, y); ctx.lineTo(top.X(x) + dir * (length / 2 - 8), y - 5); ctx.lineTo(top.X(x) + dir * (length / 2 - 8), y + 5); ctx.fill();
+      };
+      arrowAt(A, jLeft, jLeft > 0); arrowAt(B, jRight, jRight < 0);
+      ctx.save(); ctx.translate(0, half - 12);
+      const bottom = axes({ ctx, width: main.width, height: main.height - half + 12 }, -10, 10, -jScale, jScale, "posição x", "J(x,t)", 2);
+      ctx.fillStyle = "rgba(69,123,157,.12)"; ctx.fillRect(bottom.X(A), bottom.top, bottom.X(B) - bottom.X(A), bottom.bottom - bottom.top);
+      line(bottom, [{ x: -10, y: 0 }, { x: 10, y: 0 }], C.gray, [3, 3], 1);
+      line(bottom, samples(-10, 10, 400, J), C.blue);
+      ctx.restore();
+      // painel secundário: P(−1 ≤ x ≤ 1) no tempo e a reta de inclinação J(−1) − J(1)
+      const pMax = Math.max(.2, ...times.map(time => P_ab(time.x))) * 1.15;
+      const chart2 = axes(secondary, 0, tMax, 0, pMax, "tempo t", "P(−1 ≤ x ≤ 1)", 2);
+      line(chart2, samples(0, tMax, 200, P_ab), C.green);
+      const span = tMax * .12, pNow = P_ab(t);
+      line(chart2, [{ x: Math.max(0, t - span), y: pNow - rate * (t - Math.max(0, t - span)) }, { x: Math.min(tMax, t + span), y: pNow + rate * (Math.min(tMax, t + span) - t) }], C.gold, [6, 4], 2.2);
+      secondary.ctx.fillStyle = C.ink; secondary.ctx.beginPath(); secondary.ctx.arc(chart2.X(t), chart2.Y(pNow), 5, 0, TAU); secondary.ctx.fill();
+      const phaseName = Math.abs(rate) < .01 ? "P quase parado" : rate > 0 ? "P cresce: entra mais do que sai" : "P diminui: sai mais do que entra";
+      renderText({ title: "Corrente de probabilidade", subtitle: `pacote livre exato · ${phaseName}`,
+        caption: `Em cima, ρ(x,t); embaixo, J(x,t) calculada da própria função de onda, J = (ħ/m) Im(Ψ*∂ₓΨ). A faixa azul é o volume de controle [−1, 1]; as setas mostram o fluxo nas fronteiras (verde entra, vermelha sai). ${Math.abs(k0) < .025 ? "Com k₀ = 0 o pacote fica centrado em x = 0 e só se alarga." : `O pacote parte de x₀ = ${fmt(x0, 0)}, do lado de onde vem, e se alarga enquanto anda.`}`,
+        secondaryTitle: "Balanço no intervalo", secondarySubtitle: "a inclinação de P(t) é J(−1) − J(1)",
+        secondaryCaption: "A curva é P(−1 ≤ x ≤ 1) ao longo do tempo; a reta tracejada tem inclinação J(−1) − J(1) calculada no instante atual e deve tangenciar a curva.",
+        prediction: Math.abs(k0) < .025 ? "Com k₀ = 0 o centro não se move. J é nula? Para onde escoa a probabilidade?" : "Quando o centro do pacote passa por x = 0, P(−1 ≤ x ≤ 1) está no máximo? J(−1) e J(1) são iguais nesse instante?",
+        calculation: `J = (ħ/m) Im(Ψ*∂ₓΨ) = ρv<br>v = k₀ + [(dσ/dt)/σ](x − x<sub>c</sub>)<br>dP/dt = J(−1) − J(1)<br><b>= ${fmt(jLeft)} − (${fmt(jRight)}) = ${fmt(rate)}</b><br><small>inclinação medida em P(t): ${fmt(rateNumeric)}</small><br><small>∫J dx = ${fmt(total)} = ⟨p⟩/m = ${fmt(k0)}</small>`,
+        metrics: [["P(−1 ≤ x ≤ 1)", fmt(pNow)], ["J(−1)", fmt(jLeft)], ["J(1)", fmt(jRight)], ["dP/dt = J(−1) − J(1)", fmt(rate)], ["centro · largura", `${fmt(x0 + k0 * t, 2)} · ${fmt(P.freePacket(0, t, sigma0, k0, x0).width, 2)}`], ["resíduo máx. da continuidade", residual.toExponential(1)]],
+        concept: "A continuidade ∂ₜρ + ∂ₓJ = 0 diz que a probabilidade só muda atravessando fronteiras. J mede quanta probabilidade cruza cada ponto por unidade de tempo e vem da fase de Ψ: J = ρv. Aqui ela não é imposta: é calculada de Ψ, e o resíduo confere a lei ponto a ponto.",
+        prompts: ["Pare o pacote entrando, centrado e saindo: anote J(−1), J(1) e dP/dt e confira com a inclinação de P(t).", "No instante em que o centro passa por x = 0, J(−1) = J(1)? Por que o máximo de P vem antes? (Pense no alargamento.)", "Ponha k₀ = 0: o centro fica parado, mas J ≠ 0. Descreva o sinal de J nos dois lados e relacione com o alargamento."],
+        legend: [[C.green, "ρ(x,t) e P(t)"], [C.blue, "J(x,t)"], [C.gold, "inclinação J(−1) − J(1)"]] });
     } else {
-      const dp = 1 / (2 * a);
-      const cx = axes(main, -4, 4, 0, Math.max(.65, 1 / (Math.sqrt(2 * Math.PI) * a) * 1.12), "posição x", "ρₓ(x)");
-      line(cx, samples(-4, 4, 320, x => P.gaussianDensity(x, a)), C.green);
-      const cp = axes(secondary, -5, 5, 0, Math.max(.65, 1 / (Math.sqrt(2 * Math.PI) * dp) * 1.12), "momento p/ℏ", "ρₚ(p)");
-      line(cp, samples(-5, 5, 320, p => P.gaussianDensity(p, dp, b)), C.gold);
-      renderText({ title: "Distribuição em posição", subtitle: "largura Δx", caption: "Estreitar a distribuição em x aumenta a altura do pico.", secondaryTitle: "Distribuição em momento", secondarySubtitle: "largura Δp = ℏ/(2Δx)", secondaryCaption: "Os dois eixos agora têm unidades próprias; as distribuições não são sobrepostas artificialmente.", prediction: "O que acontece com Δp quando Δx cai pela metade?", calculation: `Δp = ℏ/(2Δx) = ${fmt(dp)}ℏ<br><b>ΔxΔp = ${fmt(P.uncertaintyProduct(a))}ℏ</b>`, metrics: [["Δx", fmt(a)], ["Δp/ℏ", fmt(dp)], ["produto/ℏ", "0,500"]], concept: "A gaussiana de incerteza mínima torna visível o compromisso entre as larguras em posição e momento.", prompts: ["Reduza Δx e acompanhe Δp.", "Desloque p₀ sem mudar a dispersão.", "Diferencie incerteza de erro experimental."], legend: [[C.green, "posição"], [C.gold, "momento"]] });
+      // Três formas com o mesmo Δx; ψ·exp(ip₀x + iβx²). Gaussiana sem fase quadrática é o mínimo.
+      const state = P.uncertaintyState(uncertaintyKind, a, b, t), reference = P.uncertaintyState("gaussian", a, b, 0);
+      const pHalf = Math.max(3, 4.5 * state.dp), ps = samples(b - pHalf, b + pHalf, 161, p => p).map(p => p.x);
+      const key = `${uncertaintyKind}|${a}|${b}|${t}`;
+      if (momentumCache.key !== key) momentumCache = { key, values: P.momentumDensity(state, ps) };
+      const rhoP = momentumCache.values.map((y, i) => ({ x: ps[i], y }));
+      const refP = ps.map(p => ({ x: p, y: P.gaussianDensity(p, reference.dp, b) }));
+      const marks = (chart, center, width, color) => [center - width, center + width].forEach(x => line(chart, [{ x, y: chart.yMin }, { x, y: chart.yMax }], color, [4, 4], 1.4));
+      const xHalf = Math.max(2.5, 5 * a), xTop = Math.max(...samples(-xHalf, xHalf, 241, state.density).map(p => p.y), reference.density(0)) * 1.15;
+      const cx = axes(main, -xHalf, xHalf, 0, xTop, "posição x", "ρₓ(x) = |ψ(x)|²", 2);
+      cx.yMin = 0; cx.yMax = xTop;
+      line(cx, samples(-xHalf, xHalf, 400, reference.density), C.gray, [6, 4], 1.6);
+      line(cx, samples(-xHalf, xHalf, 600, state.density), C.green);
+      marks(cx, 0, a, C.green);
+      const pTop = Math.max(...rhoP.map(p => p.y), ...refP.map(p => p.y)) * 1.15;
+      const cp = axes(secondary, b - pHalf, b + pHalf, 0, pTop, "momento p/ℏ", "ρₚ(p) = |φ(p)|²", 2);
+      cp.yMin = 0; cp.yMax = pTop;
+      line(cp, refP, C.gray, [6, 4], 1.6);
+      line(cp, rhoP, C.gold);
+      marks(cp, b, state.dp, C.gold);
+      const products = ["gaussian", "triangular", "exponential"].map(kind => fmt(P.uncertaintyState(kind, a, 0, t).product, 3));
+      const excess = 100 * (state.product / .5 - 1);
+      const dpFormula = { gaussian: "ħ/(2Δx)", exponential: "ħ/(√2 Δx)", triangular: "√0,3 ħ/Δx" }[uncertaintyKind];
+      renderText({ title: `Estado ${state.name}: distribuição em posição`, subtitle: `Δx = ${fmt(a, 2)} · linhas tracejadas em ±Δx`,
+        caption: "Curva verde: o estado escolhido. Cinza tracejado: a gaussiana com o mesmo Δx, que é o estado de incerteza mínima. p₀ e β mudam a fase de ψ, não ρₓ(x): esta curva não se move quando você mexe neles.",
+        secondaryTitle: "Distribuição em momento", secondarySubtitle: `Δp = ${fmt(state.dp, 3)} ħ · tracejado em ⟨p⟩ ± Δp`,
+        secondaryCaption: `φ(p) é calculada numericamente pela transformada de Fourier de ψ(x). Cinza tracejado: a gaussiana de mesmo Δx. Os eixos têm unidades próprias; as larguras não se comparam visualmente entre os painéis.${uncertaintyKind === "exponential" ? " Repare: o pico de φ(p) da exponencial é mais estreito que o da gaussiana e, ainda assim, Δp é maior — as caudas, que decaem como p⁻⁴, pesam em ⟨p²⟩." : ""}`,
+        prediction: "Com o mesmo Δx, qual dos três estados tem o menor Δp? Algum deles consegue ΔxΔp < ħ/2? E a fase quadrática β: muda Δx, Δp ou os dois?",
+        calculation: `Δp₀ = ${dpFormula} = ${fmt(state.dpBase, 3)} ħ<br>Δp = √(Δp₀² + 4β²Δx²) = ${fmt(state.dp, 3)} ħ<br><b>ΔxΔp = ${fmt(state.product, 3)} ħ ≥ 0,500 ħ</b><br><small>⟨p²⟩ = ∫|ψ′|²dx + 4β²⟨x²⟩ (ħ = 1)</small>`,
+        metrics: [["Δx", fmt(a, 3)], ["Δp/ħ", fmt(state.dp, 3)], ["ΔxΔp/ħ", fmt(state.product, 3)], ["acima do mínimo ħ/2", `${fmt(excess, 1)}%`], ["⟨p⟩/ħ = p₀", fmt(b, 2)], ["ΔxΔp/ħ: gauss · triang · exp", products.join(" · ")]],
+        concept: "ΔxΔp ≥ ħ/2 vale para qualquer estado. Só a gaussiana sem fase quadrática atinge a igualdade; as outras formas, e qualquer estado com fase quadrática, ficam acima. A incerteza em momento não depende só da largura de ρₓ: depende também da fase de ψ.",
+        prompts: ["Com Δx = 0,6 e β = 0, compare os três estados: ordene os produtos ΔxΔp. Qual satura a desigualdade?", "Mude Δx mantendo o estado: o produto muda? Por que ele não pode depender de Δx? (Pense em unidades.)", "Ligue β: ρₓ(x) fica igual, mas Δp cresce. O pacote livre que se alarga (estação 2) ganha exatamente essa fase quadrática."],
+        legend: [[C.green, "ρₓ do estado"], [C.gold, "ρₚ do estado"], [C.gray, "gaussiana de mesmo Δx"]] });
     }
   }
 
@@ -340,8 +405,10 @@
   function updateActions() {
     const canPlay = (topic === "aula03" && view === "current") || (topic === "aula04" && ["separation", "stationary"].includes(view)) || (topic === "aula05" && view === "superposition") || (topic === "aula06" && view === "evolution");
     const canMeasure = topic === "aula06" && view === "measurement";
+    const uncertaintySelector = topic === "aula03" && view === "uncertainty" ? `<label class="state-select"><span>Estado</span><select id="uncertaintyKind"><option value="gaussian">Gaussiana</option><option value="triangular">Triangular</option><option value="exponential">Exponencial √λ e^(−λ|x|)</option></select></label>` : "";
     const stateSelector = topic === "aula06" ? `<label class="state-select"><span>Estado preparado</span><select id="basisKind"><option value="gaussian">Gaussiano localizado</option><option value="triangular">Triangular</option><option value="flat">Constante no poço</option></select></label><label class="state-select"><span>Termos N</span><input id="modeCount" type="range" min="3" max="12" step="1" value="${modeCount}"><output>${modeCount}</output></label>` : "";
-    html("actionBar", `${stateSelector}${canPlay ? `<button id="playBtn" type="button">${playing ? "❚❚ Pausar" : "▶ Evoluir"}</button><button id="zeroBtn" class="quiet" type="button">t = 0</button>` : ""}${canMeasure ? `<button data-shots="1">Medir 1</button><button data-shots="100">Medir 100</button><button data-shots="1000">Medir 1000</button><button id="clearBtn" class="quiet">Limpar</button>` : ""}`);
+    html("actionBar", `${uncertaintySelector}${stateSelector}${canPlay ? `<button id="playBtn" type="button">${playing ? "❚❚ Pausar" : "▶ Evoluir"}</button><button id="zeroBtn" class="quiet" type="button">t = 0</button>` : ""}${canMeasure ? `<button data-shots="1">Medir 1</button><button data-shots="100">Medir 100</button><button data-shots="1000">Medir 1000</button><button id="clearBtn" class="quiet">Limpar</button>` : ""}`);
+    if (uncertaintySelector) { $("uncertaintyKind").value = uncertaintyKind; $("uncertaintyKind").onchange = event => { uncertaintyKind = event.target.value; draw(); }; }
     if (topic === "aula06") { $("basisKind").value = basisKind; $("basisKind").onchange = event => { basisKind = event.target.value; counts = Array(modeCount).fill(0); window.lastMeasurement = null; draw(); }; $("modeCount").oninput = event => { modeCount = Number(event.target.value); event.target.nextElementSibling.textContent = modeCount; counts = Array(modeCount).fill(0); window.lastMeasurement = null; draw(); }; }
     if (canPlay) { $("playBtn").onclick = togglePlay; $("zeroBtn").onclick = () => { active("tertiary").value = 0; draw(); }; }
     if (canMeasure) {
@@ -357,15 +424,20 @@
   }
 
   function togglePlay() {
-    playing = !playing; lastFrame = performance.now(); updateActions();
+    playing = !playing; lastFrame = performance.now();
+    if (playing && topic === "aula03" && Number(active("tertiary").value) >= Number(active("tertiary").max)) active("tertiary").value = 0;
+    updateActions();
     if (playing) animation = requestAnimationFrame(tick); else cancelAnimationFrame(animation);
   }
 
   function tick(now) {
     if (!playing) return;
     const input = active("tertiary");
-    input.value = (Number(input.value) + (now - lastFrame) * .001) % TAU;
-    lastFrame = now; draw(); animation = requestAnimationFrame(tick);
+    const next = Number(input.value) + (now - lastFrame) * .001, max = Number(input.max);
+    lastFrame = now;
+    if (topic === "aula03" && next >= max) { input.value = max; playing = false; updateActions(); draw(); return; }
+    input.value = topic === "aula03" ? next : next % TAU;
+    draw(); animation = requestAnimationFrame(tick);
   }
 
   function draw() {

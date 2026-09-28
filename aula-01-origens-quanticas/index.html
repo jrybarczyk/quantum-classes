@@ -15,7 +15,7 @@
       <div class="heading">
         <p class="eyebrow">Mecânica Quântica · Aula 1</p>
         <h1>Laboratório das Origens Quânticas</h1>
-        <p>Quatro experiências, uma ruptura com a física clássica.</p>
+        <p>Quatro experiências e uma aplicação em radiações.</p>
       </div>
       <div class="status" aria-live="polite"><span>Estação atual</span><strong id="statusTitle">Corpo negro</strong><small id="statusDetail">T = 5 800 K</small></div>
     </header>
@@ -25,6 +25,7 @@
       <button data-view="photoelectric" role="tab" aria-selected="false"><b>02</b><span>Efeito<br>fotoelétrico</span></button>
       <button data-view="compton" role="tab" aria-selected="false"><b>03</b><span>Efeito<br>Compton</span></button>
       <button data-view="matter" role="tab" aria-selected="false"><b>04</b><span>de Broglie<br>e Bragg</span></button>
+      <button data-view="radiation" role="tab" aria-selected="false"><b>05</b><span>Fótons e<br>matéria</span></button>
     </nav>
 
     <section id="workspace" class="workspace">
@@ -35,7 +36,7 @@
           <h3>Forno ideal</h3>
           <p class="equation">u<sub>ν</sub> = 8πhν³ / [c³(e<sup>hν/kT</sup>−1)]</p>
           <label><span>Temperatura, T</span><output id="temperatureOut"></output><input id="temperature" type="range" min="300" max="12000" step="50" value="5800"></label>
-          <label class="select"><span>Escala horizontal</span><select id="spectrumAxis"><option value="dimensionless">x = hν/kT</option><option value="wavelength">comprimento de onda</option></select></label>
+          <label class="select"><span>Escala horizontal</span><select id="spectrumAxis"><option value="dimensionless">x = hν/kT (forma universal)</option><option value="absolute">frequência absoluta: T e 2T</option><option value="wavelength">comprimento de onda</option></select></label>
           <div class="presets"><button data-set="temperature" data-value="300">Ambiente</button><button data-set="temperature" data-value="5800">Sol</button></div>
           <p class="hint">Mude a temperatura e observe separadamente a forma universal e o deslocamento do pico.</p>
         </section>
@@ -45,6 +46,7 @@
           <p class="equation">K<sub>máx</sub> = hν − Φ = eV<sub>s</sub></p>
           <label><span>Frequência, ν</span><output id="frequencyOut"></output><input id="frequency" type="range" min="1" max="12" step="0.005" value="7"></label>
           <label><span>Função trabalho, Φ</span><output id="workFunctionOut"></output><input id="workFunction" type="range" min="1.5" max="5.5" step="0.001" value="2.30"></label>
+          <label class="select"><span>Gráfico</span><select id="photoView"><option value="energy">Kmáx × frequência</option><option value="current">fotocorrente × tensão</option></select></label>
           <label><span>Intensidade relativa</span><output id="intensityOut"></output><input id="intensity" type="range" min="0.1" max="2" step="0.05" value="1"></label>
           <div class="presets"><button data-set="frequency,workFunction" data-value="8.565,1.943">Potássio: λ=350 nm, Φ=1,943 eV</button><button data-set="workFunction" data-value="2.0">Φ=2,0 eV (slide)</button></div>
           <p class="hint">Teste primeiro uma frequência abaixo do corte; depois aumente apenas a intensidade. O preset do potássio reproduz o exemplo resolvido da aula (Kmáx≈1,60 eV).</p>
@@ -68,6 +70,16 @@
           <div class="presets"><button data-set="voltage" data-value="54">54 V</button><button data-set="voltage" data-value="150">150 V</button><button data-set="voltage" data-value="5000">5 kV</button></div>
           <p class="hint">Procure quando λ e d têm a mesma ordem de grandeza.</p>
         </section>
+
+        <section class="view-controls" data-controls="radiation">
+          <h3>Feixe de raios X</h3>
+          <p class="equation">I(x) = I<sub>0</sub>e<sup>−μx</sup></p>
+          <label class="select"><span>Material</span><select id="radiationMaterial"><option value="water">Água</option><option value="bone">Osso cortical</option><option value="lead">Chumbo</option></select></label>
+          <label><span>Energia do fóton (escala log)</span><output id="radiationEnergyOut"></output><input id="radiationEnergy" type="range" min="1" max="4.3" step="0.005" value="2"></label>
+          <label><span>Espessura</span><output id="radiationThicknessOut"></output><input id="radiationThickness" type="range" min="0.1" max="10" step="0.1" value="1"></label>
+          <div class="presets"><button data-set="radiationMaterial,radiationEnergy,radiationThickness" data-value="water,2,1">Água · 100 keV</button><button data-set="radiationMaterial,radiationEnergy,radiationThickness" data-value="bone,1.69897,1">Osso · 50 keV</button><button data-set="radiationMaterial,radiationEnergy,radiationThickness" data-value="lead,1.929419,0.1">Pb · 85 keV</button><button data-set="radiationMaterial,radiationEnergy,radiationThickness" data-value="lead,1.954243,0.1">Pb · 90 keV</button></div>
+          <p class="hint">Recupere as grandezas da Física das Radiações e identifique o mecanismo quântico que as sustenta.</p>
+        </section>
       </aside>
 
       <section class="stage" aria-label="Visualizações">
@@ -89,6 +101,7 @@
 
     <footer><span>Biocomplexity Lab · material didático</span><span>Instituto de Biociências de Botucatu — UNESP · Depto. de Biofísica e Farmacologia · Prof. Assoc. José L. Rybarczyk-Filho</span></footer>
   </main>
+  <script src="xcom-data.js"></script>
   <script src="physics.js"></script>
   <script src="app.js"></script>
 </body>
