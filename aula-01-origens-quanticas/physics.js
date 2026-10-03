@@ -121,6 +121,14 @@
     };
   }
 
+  // Controles em escala log: o slider guarda log10 da grandeza e o valor usado é
+  // arredondado (unidades inteiras abaixo de 1000, dezenas acima), para que um botão
+  // de "54 V" dê exatamente 54 V mesmo depois do passo do slider.
+  function fromLogSlider(logValue) {
+    const value = 10 ** logValue;
+    return value < 1000 ? Math.round(value) : Math.round(value / 10) * 10;
+  }
+
   function braggAngle(wavelength, spacing, order = 1) {
     const argument = order * wavelength / (2 * spacing);
     return argument <= 1 ? Math.asin(argument) * 180 / Math.PI : null;
@@ -193,6 +201,7 @@
     compton,
     deBroglieElectron,
     braggAngle,
+    fromLogSlider,
     radiationMaterials,
     radiationInteraction,
     absorptionEdges,

@@ -5,7 +5,7 @@
   // A moldura preserva a marca do laboratório; os gráficos usam a paleta conceitual dos slides.
   const colors = { green: "#1f3a6e", lime: "#83c44e", gray: "#5e6877", grid: "#d8e1ef", warm: "#3f7f54", red: "#9e2a2b", ink: "#1d2a3d", pale: "#eef3fa" };
   let activeView = new URLSearchParams(location.search).get("view") || "blackbody";
-  const defaults = { blackbody: { temperature: 5800, spectrumAxis: "dimensionless" }, photoelectric: { frequency: 7, workFunction: 2.3, intensity: 1, photoView: "energy" }, compton: { comptonWavelength: 71, comptonAngle: 90 }, matter: { voltage: 150, spacing: .2, braggOrder: 1 }, radiation: { radiationMaterial: "water", radiationEnergy: 2, radiationThickness: 1 } };
+  const defaults = { blackbody: { temperature: 5800, spectrumAxis: "dimensionless" }, photoelectric: { frequency: 7, workFunction: 2.3, intensity: 1, photoView: "energy" }, compton: { comptonWavelength: 71, comptonAngle: 90 }, matter: { voltage: 2.176091, spacing: .2, braggOrder: 1 }, radiation: { radiationMaterial: "water", radiationEnergy: 2, radiationThickness: 1 } };
   document.querySelector(".tabs").addEventListener("keydown", (event) => { if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return; const tabs = [...document.querySelectorAll("[data-view]")], current = tabs.findIndex(tab => tab.dataset.view === activeView), index = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (current + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length; event.preventDefault(); tabs[index].focus(); switchView(tabs[index].dataset.view); });
 
   function value(id) { return Number($(id).value); }
@@ -212,7 +212,7 @@
   }
 
   function drawMatter() {
-    const voltage = value("voltage"), spacing = value("spacing") * 1e-9, order = value("braggOrder"), wave = P.deBroglieElectron(voltage), angle = P.braggAngle(wave.relativisticWavelength, spacing, order), drawing = canvas(), context = drawing.context;
+    const voltage = P.fromLogSlider(value("voltage")), spacing = value("spacing") * 1e-9, order = value("braggOrder"), wave = P.deBroglieElectron(voltage), angle = P.braggAngle(wave.relativisticWavelength, spacing, order), drawing = canvas(), context = drawing.context;
     setText("voltageOut", voltage >= 1000 ? `${fmt(voltage / 1000, 2)} kV` : `${fmt(voltage, 0)} V`); setText("spacingOut", `${fmt(spacing * 1e9, 3)} nm`);
     const split = drawing.width * .46, baseY = drawing.height * .67;
     text(context, "difração no cristal", split * .5, 28, colors.gray, "center", "700 11px Ubuntu, system-ui");
@@ -248,7 +248,7 @@
   }
 
   function drawRadiation() {
-    const materialKey = $("radiationMaterial").value, logKeV = value("radiationEnergy"), energyMeV = 10 ** logKeV / 1000, thickness = value("radiationThickness");
+    const materialKey = $("radiationMaterial").value, energyKeV = P.fromLogSlider(value("radiationEnergy")), logKeV = Math.log10(energyKeV), energyMeV = energyKeV / 1000, thickness = value("radiationThickness");
     const result = P.radiationInteraction(materialKey, energyMeV, thickness), drawing = canvas();
     const labels = { coherent: "Rayleigh", photoelectric: "fotoelétrico", compton: "Compton", pair: "pares" };
     // escala log-log: x = log10(E/keV), y = log10(μ/ρ em cm²/g); as bordas entram nas amostras dos dois lados
@@ -275,7 +275,7 @@
     line(drawing.context, plot.mapX(logKeV), plot.top, plot.mapX(logKeV), plot.bottom, colors.red, 1.2, [3, 3]);
     dot(drawing.context, plot.mapX(logKeV), plot.mapY(Math.log10(result.totalMass)), colors.red, 6);
     legend([[colors.ink, "total"], [colors.warm, "fotoelétrico"], [colors.green, "Compton"], ["#8065b8", "pares"], [colors.gray, "Rayleigh", true], [colors.red, "seleção"]]);
-    setText("radiationEnergyOut", energyLabel(10 ** logKeV));
+    setText("radiationEnergyOut", energyLabel(energyKeV));
     setText("radiationThicknessOut", `${fmt(thickness, 1)} cm`);
     setText("statusTitle", "Fótons e matéria"); setText("statusDetail", `${result.material.name} · ${labels[result.dominant]}`);
     setText("mainTitle", "Aplicação: atenuação de raios X e γ"); setText("mainSubtitle", "os coeficientes macroscópicos revelam canais microscópicos quantizados");
@@ -283,7 +283,7 @@
     setText("prediction", "Ao aumentar a energia, qual canal passa a dominar? O chumbo atenua mais logo abaixo ou logo acima de 88 keV?");
     setHtml("calculation", `μ = ρ(μ/ρ)<br>= ${fmt(result.material.density, 2)} × ${fmt(result.totalMass, 4)}<br><b>= ${fmt(result.linear, 4)} cm<sup>−1</sup></b><small>I/I<sub>0</sub> = e<sup>−μx</sup> = ${result.transmission < 1e-3 ? sci(result.transmission, 2) : fmt(result.transmission, 4)}</small>`);
     const share = key => `${fmt(100 * result[key] / result.totalMass, 0)}%`;
-    metricRows([["Energia", energyLabel(10 ** logKeV)], ["Canal dominante", labels[result.dominant]], ["μ/ρ total", `${fmt(result.totalMass, 4)} cm²/g`], ["foto · Compton · pares", `${share("photoelectric")} · ${share("compton")} · ${share("pair")}`], ["μ linear", `${fmt(result.linear, 4)} cm⁻¹`], ["Transmissão", result.transmission < 1e-3 ? `${sci(100 * result.transmission, 2)}%` : `${fmt(100 * result.transmission, 2)}%`]]);
+    metricRows([["Energia", energyLabel(energyKeV)], ["Canal dominante", labels[result.dominant]], ["μ/ρ total", `${fmt(result.totalMass, 4)} cm²/g`], ["foto · Compton · pares", `${share("photoelectric")} · ${share("compton")} · ${share("pair")}`], ["μ linear", `${fmt(result.linear, 4)} cm⁻¹`], ["Transmissão", result.transmission < 1e-3 ? `${sci(100 * result.transmission, 2)}%` : `${fmt(100 * result.transmission, 2)}%`]]);
     setText("conceptTitle", "Atenuação não é uma nova lei quântica"); setText("conceptText", "Beer–Lambert descreve o feixe em escala macroscópica. Os coeficientes que entram nela somam probabilidades de processos quânticos distintos, cada um com sua dependência em E e Z.");
     promptRows(["Compare água e osso em 50 keV: qual canal explica o contraste de uma radiografia?", "Use os presets Pb · 85 keV e Pb · 90 keV: o que acontece com μ/ρ ao cruzar a borda K? Por que isso importa para a blindagem?", "Suba acima de 1,022 MeV: em qual material os pares passam a dominar dentro da faixa, e por quê?"]);
   }

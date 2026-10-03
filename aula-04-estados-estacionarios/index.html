@@ -1,1 +1,111 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aula 4 · Estados estacionários</title><link rel="stylesheet" href="../_shared/dashboard.css"></head><body data-topic="aula04"><main class="app-shell"><header class="topbar"><div class="brand"><b>BIOCOMPLEXITY</b><small>LAB · IB/UNESP</small></div><div><p class="eyebrow">Mecânica Quântica · Aula 4</p><h1>Estados estacionários e autovalores</h1><p class="subtitle">Separação de variáveis, fase e energia.</p></div><div class="status"><span>Estação atual</span><strong id="statusTitle"></strong><small id="statusDetail"></small></div></header><nav class="tabs"><button class="active" data-view="separation"><b>01</b><span>Separação</span></button><button data-view="stationary"><b>02</b><span>Estacionário</span></button><button data-view="eigen"><b>03</b><span>Autovalor</span></button></nav><section class="workspace"><aside class="controls"><div class="panel-title"><h2>Parâmetros</h2><button id="resetBtn">Reiniciar</button></div><section class="view-controls active" data-controls="separation"><h3>Energia e fase</h3><label><span>n</span><output id="parameterOut"></output><input id="parameter" type="range" min="1" max="6" step="1" value="2"></label><label><span>amplitude</span><output id="secondaryOut"></output><input id="secondary" type="range" min=".2" max="2" step=".01" value="1"></label><label><span>tempo</span><output id="tertiaryOut"></output><input id="tertiary" type="range" min="0" max="6.28" step=".01" value="1"></label></section><section class="view-controls" data-controls="stationary"><h3>Densidade</h3><label><span>n</span><output></output><input id="parameter" type="range" min="1" max="6" step="1" value="2"></label><label><span>contraste</span><output></output><input id="secondary" type="range" min=".2" max="2" step=".01" value="1"></label><label><span>tempo</span><output></output><input id="tertiary" type="range" min="0" max="6.28" step=".01" value="1"></label></section><section class="view-controls" data-controls="eigen"><h3>Espectro</h3><label><span>nível n</span><output></output><input id="parameter" type="range" min="1" max="6" step="1" value="2"></label><label><span>escala</span><output></output><input id="secondary" type="range" min=".2" max="2" step=".01" value="1"></label><label><span>tempo</span><output></output><input id="tertiary" type="range" min="0" max="6.28" step=".01" value="1"></label></section></aside><section class="stage"><article class="canvas-panel"><div class="chart-heading"><div><h2 id="mainTitle"></h2><p id="mainSubtitle"></p></div><div id="legend" class="legend"></div></div><canvas id="mainCanvas"></canvas><p id="caption" class="caption"></p></article></section><aside class="analysis"><section class="predict"><span>Preveja antes de mover</span><p id="prediction"></p></section><section><h2>Conta aberta</h2><div id="calculation" class="calculation"></div></section><section><h2>Leituras</h2><dl id="metrics"></dl></section><section><h2 id="conceptTitle">Ideia física</h2><p id="conceptText"></p></section><section><h2>Investigue</h2><ol id="prompts"></ol></section></aside></section><footer><span>Biocomplexity Lab · material didático</span><span>Instituto de Biociências de Botucatu — UNESP · Depto. de Biofísica e Farmacologia · Prof. Assoc. José L. Rybarczyk-Filho</span></footer></main><script src="physics.js"></script><script src="../_shared/dashboard.js"></script></body></html>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Aplicação interativa da aula 4: separação de variáveis, estados estacionários, autovalores, superposição de dois níveis e E maior que o mínimo do potencial.">
+<title>Aula 4 · Estados estacionários</title>
+<link rel="stylesheet" href="../_shared/dashboard.css">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip-link" href="#simulador">Ir para o simulador</a>
+<main id="simulador" class="app-shell">
+<header class="topbar">
+  <div class="brand"><b>BIOCOMPLEXITY</b><small>LAB · IB/UNESP</small></div>
+  <div>
+    <p class="eyebrow">Mecânica Quântica · Aula 4</p>
+    <h1>Estados estacionários e autovalores</h1>
+    <p class="subtitle">Separação de variáveis, fase, energia e superposição.</p>
+  </div>
+  <div class="status" aria-live="polite"><span>Estação atual</span><strong id="statusTitle"></strong><small id="statusDetail"></small></div>
+</header>
+
+<nav class="tabs" role="tablist" aria-label="Estações da aula">
+  <button class="active" data-view="separation" role="tab" aria-selected="true"><b>01</b><span>Separação</span></button>
+  <button data-view="stationary" role="tab" aria-selected="false"><b>02</b><span>Estacionário</span></button>
+  <button data-view="eigen" role="tab" aria-selected="false"><b>03</b><span>Autovalor</span></button>
+  <button data-view="twolevel" role="tab" aria-selected="false"><b>04</b><span>Dois níveis</span></button>
+  <button data-view="vmin" role="tab" aria-selected="false"><b>05</b><span>E &gt; V<sub>mín</sub></span></button>
+</nav>
+
+<section class="workspace">
+  <aside class="controls" aria-label="Controles da estação">
+    <div class="panel-title"><h2>Parâmetros</h2><button id="resetBtn" type="button">Reiniciar</button></div>
+
+    <section class="view-controls active" data-controls="separation">
+      <h3>Energia e fase</h3>
+      <p class="equation">Ψₙ(θ,t) = ψₙ(θ)·e<sup>−iEₙt/ℏ</sup></p>
+      <label><span>nível n</span><output id="sepNOut"></output><input id="sepN" type="range" min="1" max="6" step="1" value="2"></label>
+      <label><span>tempo t (ℏ/E₁)</span><output id="sepTOut"></output><input id="sepT" type="range" min="0" max="6.28" step=".005" value="0"></label>
+      <div class="action-bar"><button type="button" data-play="sepT">❚❚ Pausar</button><button type="button" class="quiet" data-zero="sepT">t = 0</button></div>
+    </section>
+
+    <section class="view-controls" data-controls="stationary">
+      <h3>Autoestado em movimento</h3>
+      <p class="equation">|Ψₙ(θ,t)|² = |ψₙ(θ)|²</p>
+      <label><span>nível n</span><output id="statNOut"></output><input id="statN" type="range" min="1" max="6" step="1" value="2"></label>
+      <label><span>tempo t (ℏ/E₁)</span><output id="statTOut"></output><input id="statT" type="range" min="0" max="6.28" step=".005" value="0"></label>
+      <div class="action-bar"><button type="button" data-play="statT">❚❚ Pausar</button><button type="button" class="quiet" data-zero="statT">t = 0</button></div>
+    </section>
+
+    <section class="view-controls" data-controls="eigen">
+      <h3>Níveis do poço</h3>
+      <p class="equation">Eₙ = n²π²ℏ²/(2mL²)</p>
+      <label><span>nível selecionado n</span><output id="eigNOut"></output><input id="eigN" type="range" min="1" max="6" step="1" value="2"></label>
+      <label><span>largura L (L₀)</span><output id="eigLOut"></output><input id="eigL" type="range" min=".6" max="1.8" step=".02" value="1"></label>
+      <label><span>tempo t (ℏ/E₁)</span><output id="eigTOut"></output><input id="eigT" type="range" min="0" max="6.28" step=".005" value="0"></label>
+      <div class="action-bar"><button type="button" data-play="eigT">❚❚ Pausar</button><button type="button" class="quiet" data-zero="eigT">t = 0</button></div>
+    </section>
+
+    <section class="view-controls" data-controls="twolevel">
+      <h3>Superposição de dois níveis</h3>
+      <p class="equation">Ψ = c₁ψ₁e<sup>−iE₁t/ℏ</sup> + c₂e<sup>iα</sup>ψ₂e<sup>−iE₂t/ℏ</sup></p>
+      <label><span>peso |c₂|²</span><output id="twoPOut"></output><input id="twoP" type="range" min="0" max="1" step="any" value="0.6666667"></label>
+      <label><span>fase relativa α</span><output id="twoAOut"></output><input id="twoA" type="range" min="0" max="6.28" step=".01" value="0"></label>
+      <label><span>tempo t (ℏ/E₁)</span><output id="twoTOut"></output><input id="twoT" type="range" min="0" max="6.28" step=".005" value="0"></label>
+      <div class="action-bar"><button type="button" data-play="twoT">❚❚ Pausar</button><button type="button" class="quiet" data-zero="twoT">t = 0</button></div>
+      <div class="presets"><button type="button" id="twoPreset">Exercício da nota: 1/3 e 2/3</button></div>
+      <h3>Medir a energia</h3>
+      <div class="action-bar"><button type="button" data-shots="1">Medir 1</button><button type="button" data-shots="100">Medir 100</button><button type="button" data-shots="1000">Medir 1000</button><button type="button" class="quiet" id="twoClear">Limpar</button></div>
+    </section>
+
+    <section class="view-controls" data-controls="vmin">
+      <h3>Função de teste</h3>
+      <p class="equation">E = (ℏ²/2m)∫|ψ′|²dx + ∫V|ψ|²dx</p>
+      <label class="state-select"><span>potencial</span><select id="vminPotential"><option value="harmonic">oscilador harmônico · V = x²/2</option><option value="linear">poço em V · V = |x|</option><option value="doubleWell">poço duplo · V = (x² − 1)²</option></select></label>
+      <label><span>centro x₀</span><output id="vminX0Out"></output><input id="vminX0" type="range" min="-2.5" max="2.5" step=".05" value="1.5"></label>
+      <label><span>largura w</span><output id="vminWOut"></output><input id="vminW" type="range" min=".1" max="2" step=".01" value=".4"></label>
+      <div class="action-bar"><button type="button" id="vminRelax">▶ Relaxar</button><button type="button" class="quiet" id="vminBack">Voltar à função de teste</button></div>
+      <p class="hint">“Relaxar” evolui ψ em tempo imaginário: as componentes de energia mais alta decaem mais depressa e sobra o estado fundamental.</p>
+    </section>
+  </aside>
+
+  <section class="stage" aria-label="Visualizações">
+    <article class="canvas-panel">
+      <div class="chart-heading"><div><h2 id="mainTitle"></h2><p id="mainSubtitle"></p></div><div id="legend" class="legend"></div></div>
+      <canvas id="mainCanvas" role="img" aria-label="Visualização principal da estação"></canvas>
+      <p id="caption" class="caption"></p>
+    </article>
+    <article class="canvas-panel secondary-panel">
+      <div class="chart-heading"><div><h2 id="secondaryTitle"></h2><p id="secondarySubtitle"></p></div></div>
+      <canvas id="secondaryCanvas" role="img" aria-label="Visualização complementar"></canvas>
+      <p id="secondaryCaption" class="caption"></p>
+    </article>
+  </section>
+
+  <aside class="analysis" aria-label="Análise quantitativa">
+    <section class="predict"><span>Preveja antes de mover</span><p id="prediction"></p></section>
+    <section><h2>Conta aberta</h2><div id="calculation" class="calculation"></div></section>
+    <section><h2>Leituras</h2><dl id="metrics"></dl></section>
+    <section><h2 id="conceptTitle">Ideia física</h2><p id="conceptText"></p></section>
+    <section><h2>Investigue</h2><ol id="prompts"></ol></section>
+  </aside>
+</section>
+
+<footer><span>Biocomplexity Lab · material didático</span><span>Instituto de Biociências de Botucatu — UNESP · Depto. de Biofísica e Farmacologia · Prof. Assoc. José L. Rybarczyk-Filho</span></footer>
+</main>
+<script src="physics.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

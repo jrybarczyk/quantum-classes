@@ -1,0 +1,11 @@
+/* Complementos da aula 4 sobre ../_shared/dashboard.css (cinco abas, equação, presets). */
+.tabs { grid-template-columns: repeat(5, 1fr); }
+.equation { margin: 4px 0 12px; padding: 9px 10px; border-left: 3px solid var(--dark); border-radius: 0 6px 6px 0; background: #f4f7f2; font-family: Georgia, serif; font-size: .82rem; }
+.presets { display: grid; gap: 7px; margin-top: 10px; }
+.presets button { min-height: 32px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--dark); font-size: .7rem; cursor: pointer; }
+.presets button:hover, .action-bar button:hover { filter: brightness(1.06); }
+.hint { margin: 12px 0 0; color: var(--muted); font-size: .68rem; line-height: 1.45; }
+.state-select select { width: 100%; }
+@media (max-width: 760px) { .tabs { grid-template-columns: 1fr 1fr; } }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+.calculation small { display: block; margin-top: 4px; color: var(--muted); font-size: .7rem; }
