@@ -213,7 +213,10 @@
 
   function drawMatter() {
     const voltage = P.fromLogSlider(value("voltage")), spacing = value("spacing") * 1e-9, order = value("braggOrder"), wave = P.deBroglieElectron(voltage), angle = P.braggAngle(wave.relativisticWavelength, spacing, order), drawing = canvas(), context = drawing.context;
-    setText("voltageOut", voltage >= 1000 ? `${fmt(voltage / 1000, 2)} kV` : `${fmt(voltage, 0)} V`); setText("spacingOut", `${fmt(spacing * 1e9, 3)} nm`);
+    // Tensão sempre em volts e energia sempre em elétron-volts (K = e·V), com espaço
+    // fino como separador de milhar: "5 000 V" não se confunde com 5,000.
+    const grouped = (n) => Math.round(n).toLocaleString("pt-BR").replace(/\./g, "\u2009");
+    setText("voltageOut", `${grouped(voltage)} V → K = ${grouped(voltage)} eV`); setText("spacingOut", `${fmt(spacing * 1e9, 3)} nm`);
     const split = drawing.width * .46, baseY = drawing.height * .67;
     text(context, "difração no cristal", split * .5, 28, colors.gray, "center", "700 11px Ubuntu, system-ui");
     // planos cristalinos (espaçamento fora de escala) e dois raios refletidos com o θ calculado
@@ -232,8 +235,8 @@
     if (angle !== null) text(context, `diferença de caminho 2d sen θ = ${order}λ`, split * .5, topPlane + 3 * gap + 26, colors.gray, "center", "11px Ubuntu, system-ui");
     // tensão em escala log: x = log10(V)
     const voltages = samples(1, 4, 260, (logV) => P.deBroglieElectron(10 ** logV).relativisticWavelength * 1e9);
-    const xTicks = [1, 2, 3, 4].map((v) => ({ v, label: v < 3 ? `${10 ** v} V` : `${10 ** (v - 3)} kV` }));
-    const plot = chart(context, { x: split, y: 0, width: drawing.width - split, height: drawing.height }, [{ points: voltages, color: colors.green }], { xMin: 1, xMax: 4, yMin: 0, yMax: .4, xLabel: "tensão aceleradora V (escala log)", yLabel: "λ de de Broglie (nm)", xTicks, yDigits: 2 });
+    const xTicks = [1, 2, 3, 4].map((v) => ({ v, label: `${grouped(10 ** v)} V` }));
+    const plot = chart(context, { x: split, y: 0, width: drawing.width - split, height: drawing.height }, [{ points: voltages, color: colors.green }], { xMin: 1, xMax: 4.12, yMin: 0, yMax: .4, xLabel: "tensão aceleradora V, em volts (escala log)", yLabel: "λ de de Broglie (nm)", xTicks, yDigits: 2 });
     line(context, plot.left, plot.mapY(spacing * 1e9), plot.right, plot.mapY(spacing * 1e9), colors.gray, 1.2, [5, 4]);
     text(context, "λ = d", plot.right - 4, plot.mapY(spacing * 1e9) - 5, colors.gray, "right", "10px Ubuntu, system-ui");
     dot(context, plot.mapX(Math.log10(voltage)), plot.mapY(wave.relativisticWavelength * 1e9), colors.warm, 6); legend([[colors.green, "λ(V) relativístico"], [colors.warm, "estado escolhido"]]);
@@ -241,8 +244,8 @@
     setText("mainTitle", "Comprimento de onda do elétron"); setText("mainSubtitle", "a escala atômica torna o cristal uma rede de difração");
     setText("caption", "A curva inclui a correção relativística. Na faixa baixa de tensão ela coincide visualmente com λ=h/√(2mₑeV); a diferença cresce com a energia.");
     setText("prediction", "Quadruplicar V reduz λ por 2 ou por 4 no regime não relativístico? Quando uma ordem de Bragg deixa de existir?");
-    setHtml("calculation", `λ ≈ 12,26/√V Å<br>= 12,26/√${voltage} Å<br><b>= ${fmt(wave.classicalWavelength * 1e10, 4)} Å</b><small>2d sen θ = nλ → ${angle === null ? "nλ&gt;2d: sem solução" : `θ=${fmt(angle, 3)}°`}</small>`);
-    metricRows([["Energia cinética", `${voltage.toLocaleString("pt-BR")} eV`], ["λ não relativístico", `${fmt(wave.classicalWavelength * 1e9, 5)} nm`], ["λ relativístico", `${fmt(wave.relativisticWavelength * 1e9, 5)} nm`], ["Correção relativa", `${fmt(100 * wave.relativeError, 4)}%`], ["Ângulo de Bragg", angle === null ? "não permitido" : `${fmt(angle, 3)}°`]]);
+    setHtml("calculation", `K = e·V = ${grouped(voltage)} eV<br>λ ≈ 12,26/√V Å (V em volts)<br>= 12,26/√${voltage} Å<br><b>= ${fmt(wave.classicalWavelength * 1e10, 4)} Å</b><small>2d sen θ = nλ → ${angle === null ? "nλ&gt;2d: sem solução" : `θ=${fmt(angle, 3)}°`}</small>`);
+    metricRows([["Tensão V", `${grouped(voltage)} V`], ["Energia cinética K = e·V", `${grouped(voltage)} eV`], ["λ não relativístico", `${fmt(wave.classicalWavelength * 1e9, 5)} nm`], ["λ relativístico", `${fmt(wave.relativisticWavelength * 1e9, 5)} nm`], ["Correção relativa", `${fmt(100 * wave.relativeError, 4)}%`], ["Ângulo de Bragg", angle === null ? "não permitido" : `${fmt(angle, 3)}°`]]);
     setText("conceptTitle", "Momento também define uma escala ondulatória"); setText("conceptText", "A difração não significa uma órbita ondulada. Ela revela interferência entre amplitudes associadas a caminhos indistinguíveis.");
     promptRows(["Recupere aproximadamente 1,67 Å em 54 V.", "Teste a validade não relativística em 150 V e 5 kV.", "Varie d e n e identifique ordens proibidas."]);
   }

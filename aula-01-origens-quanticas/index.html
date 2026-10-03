@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Laboratório interativo da aula 1: corpo negro, efeito fotoelétrico, Compton e ondas de matéria.">
   <title>Laboratório das Origens Quânticas</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=ec3ea87e59">
 </head>
 <body>
   <a class="skip-link" href="#workspace">Ir para o experimento</a>
@@ -63,11 +63,11 @@
 
         <section class="view-controls" data-controls="matter">
           <h3>Elétron e cristal</h3>
-          <p class="equation">λ = h/p&nbsp;;&nbsp; 2d sen θ = nλ</p>
-          <label><span>Tensão aceleradora (escala log)</span><output id="voltageOut"></output><input id="voltage" type="range" min="1" max="4" step="0.001" value="2.176091"></label>
+          <p class="equation">K = e·V&nbsp;;&nbsp; λ = h/p&nbsp;;&nbsp; 2d sen θ = nλ</p>
+          <label><span>Tensão aceleradora V, em volts (escala log)</span><output id="voltageOut"></output><input id="voltage" type="range" min="1" max="4" step="0.001" value="2.176091"></label>
           <label><span>Espaçamento, d</span><output id="spacingOut"></output><input id="spacing" type="range" min="0.08" max="0.40" step="0.005" value="0.20"></label>
           <label class="select"><span>Ordem de Bragg</span><select id="braggOrder"><option>1</option><option>2</option><option>3</option></select></label>
-          <div class="presets"><button data-set="voltage" data-value="1.732394">54 V</button><button data-set="voltage" data-value="2.176091">150 V</button><button data-set="voltage" data-value="3.698970">5 kV</button></div>
+          <div class="presets"><button data-set="voltage" data-value="1.732394">54 V</button><button data-set="voltage" data-value="2.176091">150 V</button><button data-set="voltage" data-value="3.698970">5 000 V</button></div>
           <p class="hint">Procure quando λ e d têm a mesma ordem de grandeza.</p>
         </section>
 
@@ -101,8 +101,8 @@
 
     <footer><span>Biocomplexity Lab · material didático</span><span>Instituto de Biociências de Botucatu — UNESP · Depto. de Biofísica e Farmacologia · Prof. Assoc. José L. Rybarczyk-Filho</span></footer>
   </main>
-  <script src="xcom-data.js"></script>
-  <script src="physics.js"></script>
-  <script src="app.js"></script>
+  <script src="xcom-data.js?v=d895ffca4a"></script>
+  <script src="physics.js?v=511ea74205"></script>
+  <script src="app.js?v=121d09fee2"></script>
 </body>
 </html>
