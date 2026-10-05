@@ -1,1 +1,117 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aula 5 · Poço infinito</title><link rel="stylesheet" href="../_shared/dashboard.css?v=7716005a8c"></head><body data-topic="aula05"><main class="app-shell"><header class="topbar"><div class="brand"><b>BIOCOMPLEXITY</b><small>LAB · IB/UNESP</small></div><div><p class="eyebrow">Mecânica Quântica · Aula 5</p><h1>Partícula no poço quadrado infinito</h1><p class="subtitle">Nós, energia discreta e superposição.</p></div><div class="status"><span>Estação atual</span><strong id="statusTitle"></strong><small id="statusDetail"></small></div></header><nav class="tabs"><button class="active" data-view="spectrum"><b>01</b><span>Espectro</span></button><button data-view="wave"><b>02</b><span>Autofunção</span></button><button data-view="superposition"><b>03</b><span>Superposição</span></button></nav><section class="workspace"><aside class="controls"><div class="panel-title"><h2>Parâmetros</h2><button id="resetBtn">Reiniciar</button></div><section class="view-controls active" data-controls="spectrum"><h3>Níveis</h3><label><span>n</span><output id="parameterOut"></output><input id="spectrum-parameter" type="range" min="1" max="6" step="1" value="2"></label><label><span>largura L</span><output id="secondaryOut"></output><input id="spectrum-secondary" type="range" min=".2" max="2" step=".01" value="1"></label><label><span>tempo</span><output id="tertiaryOut"></output><input id="spectrum-tertiary" type="range" min="0" max="6.28" step=".01" value="0"></label></section><section class="view-controls" data-controls="wave"><h3>Modo</h3><label><span>n</span><output></output><input id="wave-parameter" type="range" min="1" max="6" step="1" value="2"></label><label><span>L</span><output></output><input id="wave-secondary" type="range" min=".2" max="2" step=".01" value="1"></label><label><span>fase</span><output></output><input id="wave-tertiary" type="range" min="0" max="6.28" step=".01" value="0"></label></section><section class="view-controls" data-controls="superposition"><h3>Interferência</h3><label><span>peso</span><output></output><input id="superposition-parameter" type="range" min="1" max="6" step="1" value="2"></label><label><span>amplitude</span><output></output><input id="superposition-secondary" type="range" min=".2" max="2" step=".01" value="1"></label><label><span>fase relativa</span><output></output><input id="superposition-tertiary" type="range" min="0" max="6.28" step=".01" value="0"></label></section></aside><section class="stage"><article class="canvas-panel"><div class="chart-heading"><div><h2 id="mainTitle"></h2><p id="mainSubtitle"></p></div><div id="legend" class="legend"></div></div><canvas id="mainCanvas"></canvas><p id="caption" class="caption"></p></article></section><aside class="analysis"><section class="predict"><span>Preveja antes de mover</span><p id="prediction"></p></section><section><h2>Conta aberta</h2><div id="calculation" class="calculation"></div></section><section><h2>Leituras</h2><dl id="metrics"></dl></section><section><h2 id="conceptTitle">Ideia física</h2><p id="conceptText"></p></section><section><h2>Investigue</h2><ol id="prompts"></ol></section></aside></section><footer><span>Biocomplexity Lab · material didático</span><span>Instituto de Biociências de Botucatu — UNESP · Depto. de Biofísica e Farmacologia · Prof. Assoc. José L. Rybarczyk-Filho</span></footer></main><script src="physics.js?v=9a303c5325"></script><script src="../_shared/dashboard.js?v=2955c11405"></script></body></html>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Aplicação interativa da aula 5: poço quadrado infinito, medida de posição, superposição, revivência quântica e aplicações em física médica.">
+<title>Aula 5 · Poço infinito</title>
+<link rel="stylesheet" href="../_shared/dashboard.css?v=7716005a8c">
+<link rel="stylesheet" href="styles.css?v=f7fd099d93">
+</head>
+<body>
+<a class="skip-link" href="#simulador">Ir para o simulador</a>
+<main id="simulador" class="app-shell">
+<header class="topbar">
+  <div class="brand"><b>BIOCOMPLEXITY</b><small>LAB · IB/UNESP</small></div>
+  <div>
+    <p class="eyebrow">Mecânica Quântica · Aula 5</p>
+    <h1>Partícula no poço quadrado infinito</h1>
+    <p class="subtitle">Níveis, medidas, superposição, revivência e física médica.</p>
+  </div>
+  <div class="status" aria-live="polite"><span>Estação atual</span><strong id="statusTitle"></strong><small id="statusDetail"></small></div>
+</header>
+
+<nav class="tabs" role="tablist" aria-label="Estações da aula">
+  <button class="active" data-view="spectrum" role="tab" aria-selected="true"><b>01</b><span>Espectro</span></button>
+  <button data-view="measure" role="tab" aria-selected="false"><b>02</b><span>Medida de posição</span></button>
+  <button data-view="superposition" role="tab" aria-selected="false"><b>03</b><span>Superposição</span></button>
+  <button data-view="revival" role="tab" aria-selected="false"><b>04</b><span>Revivência</span></button>
+  <button data-view="medical" role="tab" aria-selected="false"><b>05</b><span>Física médica</span></button>
+</nav>
+
+<section class="workspace">
+  <aside class="controls" aria-label="Controles da estação">
+    <div class="panel-title"><h2>Parâmetros</h2><button id="resetBtn" type="button">Reiniciar</button></div>
+
+    <section class="view-controls active" data-controls="spectrum">
+      <h3>Níveis do poço</h3>
+      <p class="equation">E<sub>n</sub> = n²π²ℏ²/(2mL²)</p>
+      <label><span>nível selecionado n</span><output id="specNOut"></output><input id="specN" type="range" min="1" max="6" step="1" value="2"></label>
+      <label><span>largura L (L₀)</span><output id="specLOut"></output><input id="specL" type="range" min=".6" max="1.6" step=".02" value="1"></label>
+      <label><span>tempo t (ℏ/E₁)</span><output id="specTOut"></output><input id="specT" type="range" min="0" max="6.2832" step=".002" value="0"></label>
+      <div class="action-bar"><button type="button" data-play="specT">❚❚ Pausar</button><button type="button" class="quiet" data-zero="specT">t = 0</button></div>
+    </section>
+
+    <section class="view-controls" data-controls="measure">
+      <h3>Detector de posição</h3>
+      <p class="equation">P(a ≤ x ≤ b) = ∫<sub>a</sub><sup>b</sup>|ψ<sub>n</sub>|² dx</p>
+      <label><span>estado n</span><output id="measNOut"></output><input id="measN" type="range" min="1" max="20" step="1" value="1"></label>
+      <label><span>intervalo: até b/L</span><output id="measBOut"></output><input id="measB" type="range" min=".05" max="1" step=".01" value=".25"></label>
+      <div class="action-bar"><button type="button" id="measStream">▶ Detectar continuamente</button><button type="button" class="quiet" id="measClear">Limpar</button><button type="button" data-shots="100">Medir 100</button><button type="button" data-shots="1000">Medir 1000</button></div>
+    </section>
+
+    <section class="view-controls" data-controls="superposition">
+      <h3>Dois níveis</h3>
+      <p class="equation">Ψ = c<sub>m</sub>ψ<sub>m</sub>e<sup>−iE<sub>m</sub>t/ℏ</sup> + c<sub>n</sub>e<sup>iα</sup>ψ<sub>n</sub>e<sup>−iE<sub>n</sub>t/ℏ</sup></p>
+      <label><span>primeiro nível m</span><output id="supMOut"></output><input id="supM" type="range" min="1" max="4" step="1" value="1"></label>
+      <label><span>segundo nível n</span><output id="supNOut"></output><input id="supN" type="range" min="2" max="5" step="1" value="2"></label>
+      <label><span>peso |c<sub>n</sub>|²</span><output id="supPOut"></output><input id="supP" type="range" min="0" max="1" step=".01" value=".5"></label>
+      <label><span>fase relativa α</span><output id="supAOut"></output><input id="supA" type="range" min="0" max="6.2832" step=".01" value="0"></label>
+      <label><span>tempo t (ℏ/E₁)</span><output id="supTOut"></output><input id="supT" type="range" min="0" max="6.2832" step=".002" value="0"></label>
+      <div class="action-bar"><button type="button" data-play="supT">❚❚ Pausar</button><button type="button" class="quiet" data-zero="supT">t = 0</button></div>
+    </section>
+
+    <section class="view-controls" data-controls="revival">
+      <h3>Pacote no poço</h3>
+      <p class="equation">T<sub>rev</sub> = 2πℏ/E₁ = 4mL²/(πℏ)</p>
+      <label><span>centro inicial u₀</span><output id="revU0Out"></output><input id="revU0" type="range" min=".2" max=".8" step=".01" value=".3"></label>
+      <label><span>largura w</span><output id="revWOut"></output><input id="revW" type="range" min=".03" max=".12" step=".005" value=".05"></label>
+      <label><span>momento k₀ (unid. 1/L)</span><output id="revKOut"></output><input id="revK" type="range" min="0" max="60" step="1" value="30"></label>
+      <label><span>tempo t / T<sub>rev</sub></span><output id="revTOut"></output><input id="revT" type="range" min="0" max="1" step=".0005" value="0"></label>
+      <div class="action-bar"><button type="button" data-play="revT">❚❚ Pausar</button><button type="button" class="quiet" data-zero="revT">t = 0</button></div>
+      <div class="presets"><button type="button" data-revt=".25">t = T<sub>rev</sub>/4 (duas cópias)</button><button type="button" data-revt=".5">t = T<sub>rev</sub>/2 (espelhado)</button><button type="button" data-revt="1">t = T<sub>rev</sub> (revivência)</button></div>
+    </section>
+
+    <section class="view-controls" data-controls="medical">
+      <h3>Modelo de aplicação</h3>
+      <div class="seg" role="group" aria-label="Aplicação"><button type="button" id="medDye" class="on">Corantes (imagem e terapia)</button><button type="button" id="medLaser">Laser de diodo</button></div>
+      <div id="dyeControls">
+        <p class="equation">ΔE = h²(N+1)/(8m<sub>e</sub>L²), L = N·0,139 nm</p>
+        <label><span>elétrons π na cadeia, N</span><output id="dyeNOut"></output><input id="dyeN" type="range" min="6" max="18" step="2" value="10"></label>
+      </div>
+      <div id="laserControls" hidden>
+        <p class="equation">E<sub>fóton</sub> = E<sub>g</sub> + E<sub>1e</sub> + E<sub>1h</sub> (GaAs)</p>
+        <label><span>largura do poço a (nm)</span><output id="qwAOut"></output><input id="qwA" type="range" min="3" max="20" step=".5" value="8"></label>
+      </div>
+      <div class="action-bar"><button type="button" id="medPhoton">✦ Disparar fóton</button></div>
+    </section>
+  </aside>
+
+  <section class="stage" aria-label="Visualizações">
+    <article class="canvas-panel">
+      <div class="chart-heading"><div><h2 id="mainTitle"></h2><p id="mainSubtitle"></p></div><div id="legend" class="legend"></div></div>
+      <canvas id="mainCanvas" role="img" aria-label="Visualização principal da estação"></canvas>
+      <p id="caption" class="caption"></p>
+    </article>
+    <article class="canvas-panel secondary-panel">
+      <div class="chart-heading"><div><h2 id="secondaryTitle"></h2><p id="secondarySubtitle"></p></div></div>
+      <canvas id="secondaryCanvas" role="img" aria-label="Visualização complementar"></canvas>
+      <p id="secondaryCaption" class="caption"></p>
+    </article>
+  </section>
+
+  <aside class="analysis" aria-label="Análise quantitativa">
+    <section class="predict"><span>Preveja antes de mover</span><p id="prediction"></p></section>
+    <section><h2>Conta aberta</h2><div id="calculation" class="calculation"></div></section>
+    <section><h2>Leituras</h2><dl id="metrics"></dl></section>
+    <section><h2 id="conceptTitle">Ideia física</h2><p id="conceptText"></p></section>
+    <section><h2>Investigue</h2><ol id="prompts"></ol></section>
+  </aside>
+</section>
+
+<footer><span>Biocomplexity Lab · material didático</span><span>Instituto de Biociências de Botucatu — UNESP · Depto. de Biofísica e Farmacologia · Prof. Assoc. José L. Rybarczyk-Filho</span></footer>
+</main>
+<script src="physics.js?v=1722f7a5d8"></script>
+<script src="app.js?v=796cc94257"></script>
+</body>
+</html>

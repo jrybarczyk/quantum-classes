@@ -11,7 +11,7 @@ Site publicado: <https://jrybarczyk.github.io/quantum-classes/>
 | 02 | [Estúdio da Função de Onda](aula-02-funcao-onda/) | Onda plana, pacote gaussiano, regra de Born e equacao de Schrodinger. |
 | 03 | [Aula 3 · Normalização e incerteza](aula-03-normalizacao-corrente/) | Normalizacao, corrente de probabilidade e relacoes de incerteza. |
 | 04 | [Aula 4 · Estados estacionários](aula-04-estados-estacionarios/) | Separacao temporal, estados estacionarios e problema de autovalor. |
-| 05 | [Aula 5 · Poço infinito](aula-05-poco-infinito/) | Espectro, autofuncoes, ortogonalidade e evolucao na caixa. |
+| 05 | [Aula 5 · Poço infinito](aula-05-poco-infinito/) | Espectro, medida de posicao, revivencia e aplicacoes em fisica medica. |
 | 06 | [Aula 6 · Expansão e medidas](aula-06-expansao-medidas/) | Completeza, expansao em autoestados e medida de energia. |
 | 07 | [Aula 7 · Degraus e barreiras](aula-07-degraus-barreiras/) | Degrau e barreira de potencial, reflexao, transmissao e tunelamento. |
 

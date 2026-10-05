@@ -287,7 +287,7 @@
     if (id || state.vmin.relaxing) requestAnimationFrame(frame);
   }
   function frame(now) {
-    const dt = Math.min(.05, (now - state.last) / 1000); state.last = now;
+    const dt = Math.max(0, Math.min(.05, (now - state.last) / 1000)); state.last = now;
     if (state.playing) { const s = $(state.playing), speed = state.playing === "twoT" ? .35 : .25; let next = Number(s.value) + dt * speed; if (next > Number(s.max)) next = 0; s.value = next.toFixed(4); }
     if (view === "vmin" && state.vmin.relaxing) {
       const V = P.potentials[$("vminPotential").value].V, before = P.energyParts(state.vmin.psi, V, grid).total, steps = 80, dtau = .4 * grid.dx * grid.dx;
