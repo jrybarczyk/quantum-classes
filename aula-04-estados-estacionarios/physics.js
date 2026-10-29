@@ -83,7 +83,37 @@
     return current;
   }
 
-  const api = { phase, boxWave, densityStationary, energyLevel, ringWave, ringDensity,
+  // ---------- parêntese: elementos de matriz na base do poço (L = 1, ħ = 1, energias em E₁) ----------
+  // ⟨m|x̂|n⟩ = −8mn/[π²(m²−n²)²] (m+n ímpar), L/2 na diagonal; ⟨m|d/dx|n⟩ = 4mn/(m²−n²) (m+n ímpar);
+  // ⟨m|p̂|n⟩ = −i⟨m|d/dx|n⟩; ⟨m|Ĥ|n⟩ = n²δ_mn, com −iΓ na diagonal se V = −iΓ.
+  function matrixElement(op, m, n, gamma = 0) {
+    const odd = (m + n) % 2 === 1, d = odd ? 4 * m * n / (m * m - n * n) : 0;
+    if (op === "x") return { re: m === n ? .5 : odd ? -8 * m * n / (Math.PI * Math.PI * (m * m - n * n) ** 2) : 0, im: 0 };
+    if (op === "d") return { re: d, im: 0 };
+    if (op === "p") return { re: 0, im: -d };
+    if (op === "H") return { re: m === n ? n * n : 0, im: m === n ? -gamma : 0 };
+    throw new Error(`operador desconhecido: ${op}`);
+  }
+  const matrix = (op, size, gamma = 0) => Array.from({ length: size }, (_, i) => Array.from({ length: size }, (_, j) => matrixElement(op, i + 1, j + 1, gamma)));
+  // maior |Q_mn − Q_nm*| (zero se hermitiano) e maior |Q_mn + Q_nm*| (zero se anti-hermitiano)
+  function hermitianDefect(mat, sign = 1) {
+    let worst = 0;
+    mat.forEach((row, i) => row.forEach((q, j) => { worst = Math.max(worst, Math.hypot(q.re - sign * mat[j][i].re, q.im + sign * mat[j][i].im)); }));
+    return worst;
+  }
+  // mesmo elemento por integração numérica (ponto médio), para conferir as fórmulas
+  function numericElement(op, m, n, points = 4000) {
+    const h = 1 / points; let re = 0, im = 0;
+    for (let i = 0; i < points; i += 1) {
+      const u = (i + .5) * h, f = boxWave(u, m), g = boxWave(u, n), dg = Math.SQRT2 * n * Math.PI * Math.cos(n * Math.PI * u);
+      if (op === "x") re += f * u * g * h; else if (op === "d") re += f * dg * h; else if (op === "p") im -= f * dg * h; else re += f * n * n * g * h;
+    }
+    return { re, im };
+  }
+  // V = V_R − iΓ: a norma decai como e^{−2Γt/ħ}
+  const normDecay = (gamma, t) => Math.exp(-2 * gamma * t);
+
+  const api = { matrixElement, matrix, hermitianDefect, numericElement, normDecay, phase, boxWave, densityStationary, energyLevel, ringWave, ringDensity,
     twoLevel, twoLevelMeanX, twoLevelEnergy, measureEnergy, x12,
     potentials, makeGrid, normalize, trialGaussian, energyParts, potentialMinimum, relax };
   root.QuantumPhysics = api;

@@ -2,9 +2,9 @@
   "use strict";
   const P = window.QuantumPhysics;
   const $ = (id) => document.getElementById(id);
-  const C = { green: "#619b60", lime: "#83c44e", red: "#c65c4b", gold: "#e9a23b", blue: "#457b9d", gray: "#6f7171", grid: "#dce5dc", ink: "#26312d", faint: "#c9d3c9" };
+  const C = { green: "#619b60", lime: "#83c44e", red: "#c65c4b", gold: "#e9a23b", blue: "#457b9d", gray: "#6f7171", grid: "#dce5dc", ink: "#26312d", faint: "#c9d3c9", violet: "#7b5ea7" };
   const TAU = 2 * Math.PI;
-  const VIEWS = ["separation", "stationary", "eigen", "twolevel", "vmin"];
+  const VIEWS = ["separation", "stationary", "eigen", "twolevel", "vmin", "hermitian"];
   const reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   let view = new URLSearchParams(location.search).get("view");
   if (!VIEWS.includes(view)) view = "separation";
@@ -277,10 +277,77 @@
       legend: [[C.ink, "V(x)"], [C.blue, "V_mín", true], [C.red, "E"], [C.green, "|ψ|²"], [C.gold, "fundamental", true]] });
   }
 
+  // ================================================================ 06 · hermitiano (parêntese da nota)
+  const OPS = {
+    x: { name: "x̂", unit: "L", formula: "⟨m|x̂|n⟩ = ∫ψₘ x ψₙ dx" },
+    d: { name: "d/dx", unit: "1/L", formula: "⟨m|d/dx|n⟩ = ∫ψₘ ψₙ′ dx" },
+    p: { name: "p̂ = −iℏ d/dx", unit: "ℏ/L", formula: "⟨m|p̂|n⟩ = −iℏ∫ψₘ ψₙ′ dx" },
+    H: { name: "Ĥ", unit: "E₁", formula: "⟨m|Ĥ|n⟩ = Eₙ⟨m|n⟩ = Eₙ δₘₙ" },
+    Hc: { name: "Ĥ com V = −iΓ", unit: "E₁", formula: "⟨m|Ĥ|n⟩ = (Eₙ − iΓ) δₘₙ" },
+  };
+  const fmtC = (q, d = 3) => { const r = Math.abs(q.re) < 5e-4 ? "" : fmt(q.re, d), i = Math.abs(q.im) < 5e-4 ? "" : `${q.im < 0 ? "−" : r ? "+" : ""}${fmt(Math.abs(q.im), d)}i`; return r || i ? `${r}${r && i ? " " : ""}${i}` : "0"; };
+  function drawHermitian() {
+    const key = $("hermOp").value, op = OPS[key], m = v("hermM"), n = v("hermN"), t = v("hermT"), gamma = key === "Hc" ? v("hermGamma") : 0;
+    $("hermGammaWrap").hidden = key !== "Hc";
+    set("hermMOut", m); set("hermNOut", n); set("hermGammaOut", fmt(gamma, 2)); set("hermTOut", fmt(t, 2));
+    const size = 5, mat = P.matrix(key === "Hc" ? "H" : key, size, gamma), q = mat[m - 1][n - 1], qT = mat[n - 1][m - 1];
+    const defect = P.hermitianDefect(mat), anti = P.hermitianDefect(mat, -1);
+    const verdict = defect < 1e-9 ? "hermitiano: Q† = Q" : anti < 1e-9 ? "anti-hermitiano: Q† = −Q" : "não hermitiano";
+    const scale = Math.max(1e-9, ...mat.flat().map((c) => Math.hypot(c.re, c.im)));
+    const main = canvas("mainCanvas", .5), ctx = main.ctx, cell = Math.min(main.h * .78 / size, main.w * .5 / size), ox = 80, oy = 46;
+    label(ctx, "|n⟩ →", ox + cell * size / 2, 16, C.gray, "center"); ctx.save(); ctx.translate(26, oy + cell * size / 2); ctx.rotate(-Math.PI / 2); label(ctx, "⟨m| →", 0, 0, C.gray, "center"); ctx.restore();
+    for (let i = 0; i < size; i += 1) {
+      label(ctx, `${i + 1}`, ox + cell * (i + .5), oy - 8, C.ink, "center", "bold 11px Ubuntu, system-ui"); label(ctx, `${i + 1}`, ox - 10, oy + cell * (i + .5) + 4, C.ink, "right", "bold 11px Ubuntu, system-ui");
+      for (let j = 0; j < size; j += 1) {
+        const c = mat[i][j], x = ox + cell * j, y = oy + cell * i, mag = Math.hypot(c.re, c.im) / scale;
+        ctx.fillStyle = "#fff"; ctx.fillRect(x, y, cell, cell);
+        if (Math.abs(c.re) > 1e-9) { ctx.fillStyle = c.re > 0 ? `rgba(69,123,157,${.15 + .65 * mag})` : `rgba(198,92,75,${.15 + .65 * mag})`; ctx.fillRect(x, y, cell, cell); }
+        if (Math.abs(c.im) > 1e-9) { ctx.fillStyle = c.im > 0 ? `rgba(123,94,167,${.15 + .65 * mag})` : `rgba(233,162,59,${.2 + .6 * mag})`; ctx.fillRect(x, y, cell, cell); }
+        ctx.strokeStyle = C.grid; ctx.lineWidth = 1; ctx.strokeRect(x, y, cell, cell);
+        label(ctx, fmtC(c, 2), x + cell / 2, y + cell / 2 + 4, mag > .45 ? "#fff" : C.ink, "center", `${mag > .45 ? "bold " : ""}11px Ubuntu, system-ui`);
+      }
+    }
+    ctx.lineWidth = 3; ctx.strokeStyle = C.ink; ctx.setLineDash([]); ctx.strokeRect(ox + cell * (n - 1), oy + cell * (m - 1), cell, cell);
+    ctx.setLineDash([5, 4]); ctx.strokeRect(ox + cell * (m - 1), oy + cell * (n - 1), cell, cell); ctx.setLineDash([]);
+    if (m !== n) { ctx.strokeStyle = C.gray; ctx.lineWidth = 1.2; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + cell * size, oy + cell * size); ctx.stroke(); ctx.setLineDash([]); }
+    // painel de verificação à direita
+    const px = ox + cell * size + 40, conj = { re: qT.re, im: -qT.im };
+    label(ctx, `⟨${m}|Q̂|${n}⟩ = ${fmtC(q)} ${op.unit}`, px, oy + 14, C.ink, "left", "bold 13px Ubuntu, system-ui");
+    label(ctx, `⟨${n}|Q̂|${m}⟩* = ${fmtC(conj)} ${op.unit}`, px, oy + 40, C.ink, "left", "13px Ubuntu, system-ui");
+    const same = Math.hypot(q.re - conj.re, q.im - conj.im) < 1e-9, opp = Math.hypot(q.re + conj.re, q.im + conj.im) < 1e-9;
+    label(ctx, same && opp ? "ambos nulos" : same ? "iguais ✓ (Q_mn = Q_nm*)" : opp ? "opostos: Q_mn = −Q_nm*" : "diferentes", px, oy + 66, same ? C.green : opp ? C.gold : C.red, "left", "bold 12px Ubuntu, system-ui");
+    label(ctx, `matriz 5×5: ${verdict}`, px, oy + 100, defect < 1e-9 ? C.green : C.red, "left", "bold 12px Ubuntu, system-ui");
+    label(ctx, `máx |Q_mn − Q_nm*| = ${fmt(defect, 3)}`, px, oy + 120, C.gray, "left", "11px Ubuntu, system-ui");
+    label(ctx, `diagonal ${mat.every((r, i) => Math.abs(r[i].im) < 1e-9) ? "real ✓" : "complexa ✗"}`, px, oy + 140, C.gray, "left", "11px Ubuntu, system-ui");
+    label(ctx, "cheio: (m,n) · tracejado: (n,m)", px, oy + cell * size - 4, C.gray, "left", "10px Ubuntu, system-ui");
+    // secundário: |Ψ|² de ψ₁ com V = −iΓ e a norma no tempo
+    const norm = P.normDecay(gamma, t), sec = canvas("secondaryCanvas", .34), sctx = sec.ctx, wA = sec.w * .52;
+    const dch = axes(sec, { x: 0, y: 0, w: wA, h: sec.h }, -.08, 1.08, 0, 2.3, "posição x/L", "|Ψ₁(x,t)|²", { ticks: 4, xDigits: 1 });
+    walls(dch, 0, 1);
+    line(dch, samples(0, 1, 200, (u) => P.densityStationary(u, 1)), C.gray, [4, 4], 1.4);
+    area(dch, samples(0, 1, 200, (u) => P.densityStationary(u, 1) * norm), "rgba(97,155,96,.3)"); line(dch, samples(0, 1, 200, (u) => P.densityStationary(u, 1) * norm), C.green, [], 2.4);
+    const nch = axes(sec, { x: wA, y: 0, w: sec.w - wA, h: sec.h }, 0, 6.28, 0, 1.1, "t (ℏ/E₁)", "⟨Ψ|Ψ⟩", { ticks: 4, yDigits: 1 });
+    line(nch, [{ x: 0, y: 1 }, { x: 6.28, y: 1 }], C.gray, [4, 4], 1.2);
+    line(nch, samples(0, 6.28, 200, (s) => P.normDecay(gamma, s)), C.red, [], 2.4);
+    dot(sctx, nch.X(t), nch.Y(norm), C.red, 5);
+    label(sctx, gamma ? `e^(−2Γt/ℏ), meia-vida ${fmt(Math.LN2 / (2 * gamma), 2)} ℏ/E₁` : "V real: norma constante", nch.right - 4, nch.top + 14, C.red, "right", "bold 11px Ubuntu, system-ui");
+    texts({ status: "Hermitiano", detail: `${op.name} · ${verdict}`, title: `${op.name} na base {|n⟩} do poço: é hermitiano?`, subtitle: op.formula,
+      caption: "Cada célula é Qₘₙ = ⟨m|Q̂|n⟩ para os cinco primeiros autoestados do poço. Azul/vermelho: parte real positiva/negativa; violeta/laranja: parte imaginária positiva/negativa. Um operador hermitiano tem matriz igual à transposta conjugada: elementos simétricos em relação à diagonal são conjugados e a diagonal é real.",
+      secondaryTitle: "Hermiticidade e conservação da probabilidade", secondarySubtitle: gamma ? `V = −iΓ, Γ = ${fmt(gamma, 2)} E₁: ⟨Ψ|Ψ⟩ decai` : "Ĥ hermitiano: ⟨Ψ|Ψ⟩ não muda no tempo",
+      secondaryCaption: "Com V real, Ĥ é hermitiano e a norma é conservada (aula 3). Com V = V_R − iΓ, Ĥ ≠ Ĥ† e a norma cai como e^(−2Γt/ℏ): a partícula some do canal descrito — é como se modela absorção, por exemplo de nêutrons num núcleo.",
+      prediction: "A matriz de d/dx será simétrica? E a de p̂ = −iℏ d/dx: o que o fator −i muda? Em x̂, o que você espera para ⟨1|x̂|3⟩?",
+      calculation: `${op.formula}<br><b>⟨${m}|Q̂|${n}⟩ = ${fmtC(q)} ${op.unit} · ⟨${n}|Q̂|${m}⟩* = ${fmtC(conj)} ${op.unit}</b><small>exemplo da nota: ⟨1|p̂|2⟩ = −iℏ(4π/L²)∫sen(πx/L)cos(2πx/L)dx = 8iℏ/(3L) = ${fmt(8 / 3, 3)}i ℏ/L</small><small>(d/dx)† = −d/dx pela integração por partes; p̂† = (−iℏ)*(−d/dx) = p̂</small>`,
+      metrics: [["operador", op.name], [`⟨${m}|Q̂|${n}⟩`, `${fmtC(q)} ${op.unit}`], [`⟨${n}|Q̂|${m}⟩*`, `${fmtC(conj)} ${op.unit}`], ["máx |Qₘₙ − Qₙₘ*|", fmt(defect, 4)], ["classificação", verdict], ["⟨Ψ|Ψ⟩ em t", fmt(norm, 3)]],
+      conceptTitle: "Parêntese da nota",
+      concept: "O adjunto é definido por ⟨φ|Q̂ψ⟩ = ⟨Q̂†φ|ψ⟩, e hermitiano é Q̂† = Q̂. Numa base ortonormal isso vira Qₘₙ = Qₙₘ*. A derivada troca de sinal na integração por partes (anti-hermitiana); o −i de p̂ corrige o sinal. Operadores hermitianos têm valores esperados e autovalores reais, autofunções ortogonais e, no caso de Ĥ, conservam a probabilidade — por isso representam as grandezas observáveis.",
+      prompts: ["Escolha d/dx e compare ⟨1|d/dx|2⟩ com ⟨2|d/dx|1⟩. Agora p̂: o que mudou e por quê?", "Em x̂, confira ⟨1|x̂|1⟩ = L/2, ⟨1|x̂|2⟩ = −0,180 L (a amplitude da estação 4) e ⟨1|x̂|3⟩ = 0: explique pela paridade.", "Em Ĥ, por que a matriz é diagonal? O que isso diz sobre a base?", "Ligue V = −iΓ: o que aparece na diagonal? Em que instante ⟨Ψ|Ψ⟩ cai à metade? Confira com ln 2/(2Γ)."],
+      legend: [[C.blue, "Re > 0"], [C.red, "Re < 0"], [C.violet, "Im > 0"], [C.gold, "Im < 0"], [C.green, "|Ψ₁|² · ⟨Ψ|Ψ⟩"]] });
+  }
+
   // ---------------------------------------------------------------- animação e eventos
-  const draws = { separation: drawSeparation, stationary: drawStationary, eigen: drawEigen, twolevel: drawTwoLevel, vmin: drawVmin };
+  const draws = { separation: drawSeparation, stationary: drawStationary, eigen: drawEigen, twolevel: drawTwoLevel, vmin: drawVmin, hermitian: drawHermitian };
   const render = () => draws[view]();
-  const playIds = { separation: "sepT", stationary: "statT", eigen: "eigT", twolevel: "twoT" };
+  const playIds = { separation: "sepT", stationary: "statT", eigen: "eigT", twolevel: "twoT", hermitian: "hermT" };
   function setPlaying(id) {
     state.playing = id; state.last = performance.now();
     document.querySelectorAll("[data-play]").forEach((b) => { b.textContent = b.dataset.play === id ? "❚❚ Pausar" : "▶ Animar"; });
@@ -307,7 +374,7 @@
     setPlaying(!reducedMotion && playIds[view] ? playIds[view] : null);
     render();
   }
-  const defaults = { separation: { sepN: 2, sepT: 0 }, stationary: { statN: 2, statT: 0 }, eigen: { eigN: 2, eigL: 1, eigT: 0 }, twolevel: { twoP: 2 / 3, twoA: 0, twoT: 0 }, vmin: { vminPotential: "harmonic", vminX0: 1.5, vminW: .4 } };
+  const defaults = { separation: { sepN: 2, sepT: 0 }, stationary: { statN: 2, statT: 0 }, eigen: { eigN: 2, eigL: 1, eigT: 0 }, twolevel: { twoP: 2 / 3, twoA: 0, twoT: 0 }, vmin: { vminPotential: "harmonic", vminX0: 1.5, vminW: .4 }, hermitian: { hermOp: "p", hermM: 1, hermN: 2, hermGamma: .15, hermT: 0 } };
   document.querySelector(".tabs").addEventListener("keydown", (e) => {
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
     const tabs = [...document.querySelectorAll("[data-view]")], i = tabs.findIndex((t) => t.dataset.view === view);

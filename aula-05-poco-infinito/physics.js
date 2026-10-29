@@ -89,6 +89,32 @@
     return data;
   }
 
+  // ---------- completeza e truque de Fourier (a = 1) ----------
+  // Condições iniciais normalizadas que se anulam nas paredes (ou quase): a parábola é o
+  // exemplo 2.2 de Griffiths; o degrau mostra a convergência lenta (Gibbs) de uma descontinuidade.
+  const INITIAL = Object.freeze({
+    parabola: { name: "parábola A·x(a − x)", f: (u) => Math.sqrt(30) * u * (1 - u) },
+    triangle: { name: "triângulo com pico em a/2", f: (u) => Math.sqrt(12) * (u < .5 ? u : 1 - u) },
+    step: { name: "degrau na metade esquerda", f: (u) => (u < .5 ? Math.SQRT2 : 0) },
+  });
+  // c_n = ⟨n|f⟩ = ∫₀¹ ψ_n f du (Simpson), para n = 1..nMax; coeficientes reais.
+  function fourierCoefficients(f, nMax = 15, points = 2000) {
+    const h = 1 / points, out = [];
+    for (let n = 1; n <= nMax; n += 1) {
+      let s = 0;
+      for (let i = 0; i <= points; i += 1) { const u = i * h, wgt = i === 0 || i === points ? 1 : i % 2 ? 4 : 2; s += wgt * boxWave(u, n) * f(u); }
+      out.push({ n, re: s * h / 3, im: 0 });
+    }
+    return out;
+  }
+  // Parábola: c_n = 8√15/(nπ)³ para n ímpar, 0 para n par.
+  const parabolaCoefficient = (n) => (n % 2 ? 8 * Math.sqrt(15) / (n * Math.PI) ** 3 : 0);
+  // Σ|c_n|² e ⟨H⟩ = Σ|c_n|² n² (em E₁) dos termos fornecidos.
+  function expansionStats(coeffs) {
+    const norm = coeffs.reduce((s, c) => s + c.re * c.re + c.im * c.im, 0);
+    return { norm, energy: coeffs.reduce((s, c) => s + (c.re * c.re + c.im * c.im) * c.n * c.n, 0) };
+  }
+
   // ---------- física médica ----------
   const SI = Object.freeze({ h: 6.62607015e-34, me: 9.1093837015e-31, c: 299792458, e: 1.602176634e-19 });
   const levelEV = (n, lengthNm, massRatio = 1) => (SI.h * SI.h * n * n) / (8 * massRatio * SI.me * (lengthNm * 1e-9) ** 2) / SI.e;
@@ -121,6 +147,7 @@
 
   const api = { boxWave, boxEnergy, intervalProbability, deltaX, deltaP, samplePosition, histogram,
     twoLevel, xElement, twoLevelMeanX, packetCoefficients, packetPsi, revivalTime, carpet,
+    INITIAL, fourierCoefficients, parabolaCoefficient, expansionStats,
     SI, levelEV, wavelengthNm, BOND_NM, dye, GAAS, quantumWellLaser, OPTICAL };
   root.QuantumPhysics = api;
   if (typeof module !== "undefined") module.exports = api;

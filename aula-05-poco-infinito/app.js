@@ -5,7 +5,7 @@
   const C = { green: "#619b60", lime: "#83c44e", red: "#c65c4b", gold: "#e9a23b", blue: "#457b9d", gray: "#6f7171", grid: "#dce5dc", ink: "#26312d", faint: "#c9d3c9", violet: "#7b5ea7" };
   const LEVEL = ["#457b9d", "#c65c4b", "#619b60", "#e9a23b", "#7b5ea7", "#2a9d8f"];
   const TAU = 2 * Math.PI;
-  const VIEWS = ["spectrum", "measure", "superposition", "revival", "medical"];
+  const VIEWS = ["spectrum", "measure", "superposition", "expansion", "revival", "medical"];
   const reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   let view = new URLSearchParams(location.search).get("view");
   if (!VIEWS.includes(view)) view = "spectrum";
@@ -89,42 +89,43 @@
     meas: { samples: [], drops: [], streaming: false, history: [] },
     rev: { key: "", coeffs: null, carpet: null, image: null },
     med: { mode: "dye", photon: -1 },
+    exp: { key: "", coeffs: null },
   };
 
   // ================================================================ 01 · espectro
   function drawSpectrum() {
-    const n = v("specN"), L = v("specL"), t = v("specT"), E = (k) => P.boxEnergy(k, L), top = E(6) * 1.12;
-    set("specNOut", n); set("specLOut", fmt(L, 2)); set("specTOut", fmt(t, 2));
-    const main = canvas("mainCanvas", .5), ch = axes(main, { x: 0, y: 0, w: main.w, h: main.h }, -.12, 1.85, 0, top, "posição x (L₀)", "energia (E₁ de L₀)", { xDigits: 2, yDigits: 0 });
-    walls(ch, 0, L);
+    const n = v("specN"), a = v("specL"), t = v("specT"), E = (k) => P.boxEnergy(k, a), top = E(6) * 1.12;
+    set("specNOut", n); set("specLOut", fmt(a, 2)); set("specTOut", fmt(t, 2));
+    const main = canvas("mainCanvas", .5), ch = axes(main, { x: 0, y: 0, w: main.w, h: main.h }, -.12, 1.85, 0, top, "posição x (a₀)", "energia (E₁ de a₀)", { xDigits: 2, yDigits: 0 });
+    walls(ch, 0, a);
     for (let k = 1; k <= 6; k += 1) {
       const sel = k === n, base = E(k), next = k < 6 ? E(k + 1) - E(k) : E(6) - E(5), amp = Math.min(top * .05, next * .38), col = LEVEL[k - 1];
-      if (sel) clip(ch, (c) => { c.fillStyle = "rgba(131,196,78,.10)"; c.fillRect(ch.X(0), ch.Y(base + amp * 1.25), ch.X(L) - ch.X(0), ch.Y(base - amp * 1.25) - ch.Y(base + amp * 1.25)); });
-      line(ch, [{ x: 0, y: base }, { x: L, y: base }], sel ? col : C.faint, [], sel ? 2 : 1.2);
-      line(ch, samples(0, L, 220, (x) => base + amp * P.boxWave(x / L, k) / Math.SQRT2 * Math.cos(E(k) * t)), col, [], sel ? 3 : 1.3, sel ? 1 : .55);
-      label(ch.ctx, `n=${k} · ${fmt(base, 1)}`, ch.X(L) + 8, ch.Y(base) + 4, sel ? col : C.gray, "left", sel ? "bold 11px Ubuntu, system-ui" : "10px Ubuntu, system-ui");
+      if (sel) clip(ch, (c) => { c.fillStyle = "rgba(131,196,78,.10)"; c.fillRect(ch.X(0), ch.Y(base + amp * 1.25), ch.X(a) - ch.X(0), ch.Y(base - amp * 1.25) - ch.Y(base + amp * 1.25)); });
+      line(ch, [{ x: 0, y: base }, { x: a, y: base }], sel ? col : C.faint, [], sel ? 2 : 1.2);
+      line(ch, samples(0, a, 220, (x) => base + amp * P.boxWave(x / a, k) / Math.SQRT2 * Math.cos(E(k) * t)), col, [], sel ? 3 : 1.3, sel ? 1 : .55);
+      label(ch.ctx, `n=${k} · ${fmt(base, 1)}`, ch.X(a) + 8, ch.Y(base) + 4, sel ? col : C.gray, "left", sel ? "bold 11px Ubuntu, system-ui" : "10px Ubuntu, system-ui");
     }
     if (n > 1) { // transição para o nível de baixo: fóton emitido
-      const x = ch.X(L * .5 + .03), y1 = ch.Y(E(n)), y2 = ch.Y(E(n - 1));
+      const x = ch.X(a * .5 + .03), y1 = ch.Y(E(n)), y2 = ch.Y(E(n - 1));
       arrow(ch.ctx, x, y1 + 4, x, y2 - 4, C.ink, 2);
       label(ch.ctx, `ΔE = ${fmt(E(n) - E(n - 1), 2)}`, x + 6, (y1 + y2) / 2 + 4, C.ink, "left", "10px Ubuntu, system-ui");
     }
-    const sec = canvas("secondaryCanvas", .34), w = axes(sec, { x: 0, y: 0, w: sec.w, h: sec.h }, -.12, 1.85, -2.6, 2.6, "posição x (L₀)", `ψ${n} e |ψ${n}|²`, { xDigits: 2, ticks: 4 });
-    walls(w, 0, L);
-    area(w, samples(0, L, 300, (x) => P.boxWave(x / L, n) ** 2 / L), "rgba(69,123,157,.18)");
-    line(w, samples(0, L, 300, (x) => P.boxWave(x / L, n) / Math.sqrt(L) * Math.cos(P.boxEnergy(n, L) * t)), LEVEL[n - 1], [], 2.8);
-    line(w, samples(0, L, 300, (x) => P.boxWave(x / L, n) / Math.sqrt(L)), LEVEL[n - 1], [3, 4], 1.2, .5);
-    line(w, samples(0, L, 300, (x) => -P.boxWave(x / L, n) / Math.sqrt(L)), LEVEL[n - 1], [3, 4], 1.2, .5);
-    for (let j = 1; j < n; j += 1) { dot(sec.ctx, w.X(L * j / n), w.Y(0), C.red, 4.5); }
-    texts({ status: "Espectro", detail: `n = ${n} · L = ${fmt(L, 2)} L₀`, title: "Níveis do poço e suas ondas estacionárias", subtitle: "Eₙ ∝ n²/L²: só cabem ondas que zeram nas duas paredes",
+    const sec = canvas("secondaryCanvas", .34), w = axes(sec, { x: 0, y: 0, w: sec.w, h: sec.h }, -.12, 1.85, -2.6, 2.6, "posição x (a₀)", `ψ${n} e |ψ${n}|²`, { xDigits: 2, ticks: 4 });
+    walls(w, 0, a);
+    area(w, samples(0, a, 300, (x) => P.boxWave(x / a, n) ** 2 / a), "rgba(69,123,157,.18)");
+    line(w, samples(0, a, 300, (x) => P.boxWave(x / a, n) / Math.sqrt(a) * Math.cos(P.boxEnergy(n, a) * t)), LEVEL[n - 1], [], 2.8);
+    line(w, samples(0, a, 300, (x) => P.boxWave(x / a, n) / Math.sqrt(a)), LEVEL[n - 1], [3, 4], 1.2, .5);
+    line(w, samples(0, a, 300, (x) => -P.boxWave(x / a, n) / Math.sqrt(a)), LEVEL[n - 1], [3, 4], 1.2, .5);
+    for (let j = 1; j < n; j += 1) { dot(sec.ctx, w.X(a * j / n), w.Y(0), C.red, 4.5); }
+    texts({ status: "Espectro", detail: `n = ${n} · a = ${fmt(a, 2)} a₀`, title: "Níveis do poço e suas ondas estacionárias", subtitle: "Eₙ ∝ n²/a²: só cabem ondas que zeram nas duas paredes",
       caption: "Cada nível traz sua autofunção desenhada na própria energia, vibrando com a frequência Eₙ/ℏ: os níveis de cima vibram mais depressa. A seta mostra a transição para o nível de baixo, que emite um fóton de energia ΔE.",
       secondaryTitle: `Autofunção do nível n = ${n}`, secondarySubtitle: `${n - 1} nó(s) interno(s) (pontos vermelhos) · envoltória tracejada`,
       secondaryCaption: "A onda estacionária respira entre as envoltórias ±ψₙ(x), mas a densidade (azul claro) fica parada. Os nós estão nas mesmas posições em qualquer instante.",
-      prediction: "Ao estreitar o poço (L menor), os níveis sobem ou descem? Por qual fator mudam quando L cai à metade?",
-      calculation: `Eₙ = n²π²ℏ²/(2mL²)<br><b>E${n} = ${fmt(E(n), 3)} E₁(L₀)</b><small>E${Math.min(n + 1, 6)} − E${Math.min(n + 1, 6) - 1} = ${fmt(n < 6 ? E(n + 1) - E(n) : E(6) - E(5), 3)} = (2n+1)E₁/L²</small><small>λₙ = 2L/n = ${fmt(2 * L / n, 3)} L₀</small>`,
-      metrics: [["n", n], ["L/L₀", fmt(L, 2)], ["Eₙ/E₁(L₀)", fmt(E(n), 3)], ["nós internos", n - 1], ["Δx · Δp/ℏ", fmt(P.deltaX(n) * P.deltaP(n), 3)]],
-      concept: "A equação Hψ = Eψ aceita qualquer E; as paredes, que exigem ψ(0) = ψ(L) = 0, só deixam passar ondas com um número inteiro de meios comprimentos de onda. É o mesmo princípio das cordas de um violão.",
-      prompts: ["Reduza L à metade e confira o fator nas energias.", "Compare E₂ − E₁ com E₃ − E₂: os níveis se afastam como (2n+1)E₁.", "Relacione n ao número de nós e à rapidez da vibração."],
+      prediction: "Ao estreitar o poço (a menor), os níveis sobem ou descem? Por qual fator mudam quando a cai à metade?",
+      calculation: `Eₙ = n²π²ℏ²/(2ma²)<br><b>E${n} = ${fmt(E(n), 3)} E₁(a₀)</b><small>E${Math.min(n + 1, 6)} − E${Math.min(n + 1, 6) - 1} = ${fmt(n < 6 ? E(n + 1) - E(n) : E(6) - E(5), 3)} = (2n+1)E₁/a²</small><small>λₙ = 2L/n = ${fmt(2 * a / n, 3)} a₀</small>`,
+      metrics: [["n", n], ["a/a₀", fmt(a, 2)], ["Eₙ/E₁(a₀)", fmt(E(n), 3)], ["nós internos", n - 1], ["Δx · Δp/ℏ", fmt(P.deltaX(n) * P.deltaP(n), 3)], ["elétron, a₀ = 1 nm: E₁", `${fmt(P.levelEV(1, a), 3)} eV`], [`fóton ${n} → 1`, n > 1 ? `${fmt(P.wavelengthNm(P.levelEV(n, a) - P.levelEV(1, a)), 0)} nm` : "—"]],
+      concept: "A equação Hψ = Eψ aceita qualquer E; as paredes, que exigem ψ(0) = ψ(a) = 0, só deixam passar ondas com um número inteiro de meios comprimentos de onda. É o mesmo princípio das cordas de um violão.",
+      prompts: ["Reduza a à metade e confira o fator nas energias.", "Compare E₂ − E₁ com E₃ − E₂: os níveis se afastam como (2n+1)E₁.", "Relacione n ao número de nós e à rapidez da vibração.", "Com a₀ = 1 nm, confira o exemplo da nota: E₁ = 0,376 eV e o fóton 3 → 1 em 412 nm (violeta). Com a = 0,5 nm?"],
       legend: [[LEVEL[n - 1], "nível selecionado"], [C.faint, "demais níveis"], [C.blue, "|ψₙ|²"]] });
   }
 
@@ -142,7 +143,7 @@
   function drawMeasure() {
     const n = v("measN"), b = v("measB"), s = state.meas.samples, N = s.length;
     set("measNOut", n); set("measBOut", fmt(b, 2));
-    const main = canvas("mainCanvas", .5), ch = axes(main, { x: 0, y: 0, w: main.w, h: main.h }, -.08, 1.08, 0, 2.6, "posição x/L", "densidade de probabilidade (1/L)", { xDigits: 1 });
+    const main = canvas("mainCanvas", .5), ch = axes(main, { x: 0, y: 0, w: main.w, h: main.h }, -.08, 1.08, 0, 2.6, "posição x/a", "densidade de probabilidade (1/a)", { xDigits: 1 });
     walls(ch, 0, 1);
     clip(ch, (c) => { c.fillStyle = "rgba(233,162,59,.13)"; c.fillRect(ch.X(0), ch.top, ch.X(b) - ch.X(0), ch.bottom - ch.top); });
     if (N) { const bins = 40, hist = P.histogram(s, bins); clip(ch, (c) => { c.fillStyle = "rgba(69,123,157,.45)"; hist.forEach((hv, i) => { const x0 = ch.X(i / bins), x1 = ch.X((i + 1) / bins); c.fillRect(x0 + .5, ch.Y(Math.min(hv, 2.6)), x1 - x0 - 1, ch.bottom - ch.Y(Math.min(hv, 2.6))); }); }); }
@@ -157,15 +158,15 @@
     line(conv, [{ x: 0, y: b }, { x: Math.log10(maxN), y: b }], C.red, [3, 4], 1.4);
     if (hist.length) { line(conv, hist.map((hp) => ({ x: Math.log10(hp.count), y: hp.frac })), C.blue, [], 2.2); dot(sec.ctx, conv.X(Math.log10(hist[hist.length - 1].count)), conv.Y(hist[hist.length - 1].frac), C.blue, 5); }
     texts({ status: "Medida de posição", detail: `n = ${n} · ${N} detecções`, title: "Cada detecção é um ponto; |ψ|² é a estatística", subtitle: n >= 10 ? "n grande: as oscilações ficam finas e a média tende à densidade clássica" : "o histograma das detecções converge para |ψₙ|²",
-      caption: "Cada detecção cai num ponto do poço (brilho dourado). O histograma azul acumula as detecções e converge para |ψₙ(x)|² (verde). A linha vermelha é a densidade clássica 1/L, de uma bola que quica com velocidade constante. A faixa dourada é o intervalo [0, b].",
+      caption: "Cada detecção cai num ponto do poço (brilho dourado). O histograma azul acumula as detecções e converge para |ψₙ(x)|² (verde). A linha vermelha é a densidade clássica 1/a, de uma bola que quica com velocidade constante. A faixa dourada é o intervalo [0, b].",
       secondaryTitle: "Convergência da frequência observada", secondarySubtitle: "fração das detecções em [0, b] contra o número de detecções",
       secondaryCaption: "A curva azul é a fração medida até agora; o tracejado verde é a probabilidade quântica exata e o pontilhado vermelho, a previsão clássica b. Com poucas detecções a frequência flutua; com muitas, ela se fixa na previsão de Born.",
       prediction: "No estado fundamental, a fração das detecções no primeiro quarto do poço será maior, menor ou igual a 1/4? E com n = 20?",
       calculation: `P(0 ≤ x ≤ b) = b − sen(2nπb)/(2nπ)<br><b>= ${fmt(pExact, 4)}</b><small>clássico: b = ${fmt(b, 2)} · observado: ${pObs === null ? "—" : fmt(pObs, 4)}</small>`,
-      metrics: [["detecções", N], ["P exata em [0, b]", fmt(pExact, 4)], ["fração observada", pObs === null ? "—" : fmt(pObs, 4)], ["clássico (b)", fmt(b, 2)], ["Δx/L do estado", fmt(P.deltaX(n), 3)]],
+      metrics: [["detecções", N], ["P exata em [0, b]", fmt(pExact, 4)], ["fração observada", pObs === null ? "—" : fmt(pObs, 4)], ["clássico (b)", fmt(b, 2)], ["Δx/a do estado", fmt(P.deltaX(n), 3)]],
       concept: "A função de onda não diz onde a partícula está; diz com que frequência cada posição aparece quando a medida é repetida em sistemas preparados igualmente. Para n grande, as oscilações de |ψₙ|² ficam finas demais para qualquer detector, e a estatística quântica reproduz a clássica: o princípio da correspondência.",
       prompts: ["Com n = 1 e b = 0,25, detecte 1000 vezes: a fração fica perto de 0,0908 ou de 0,25?", "Passe para n = 2 e b = 0,5: por que a resposta é exatamente 1/2?", "Use n = 20 e compare o histograma com a linha clássica."],
-      legend: [[C.green, "|ψₙ|² teórica"], [C.blue, "histograma"], [C.red, "clássica 1/L", true], [C.gold, "detecção"]] });
+      legend: [[C.green, "|ψₙ|² teórica"], [C.blue, "histograma"], [C.red, "clássica 1/a", true], [C.gold, "detecção"]] });
   }
 
   // ================================================================ 03 · superposição
@@ -174,16 +175,16 @@
     if (n <= m) { n = m + 1; $("supN").value = n; }
     const p = v("supP"), a = v("supA"), t = v("supT"), mean = P.twoLevelMeanX(t, m, n, p, a), omega = P.boxEnergy(n) - P.boxEnergy(m), period = TAU / omega;
     set("supMOut", m); set("supNOut", n); set("supPOut", fmt(p, 2)); set("supAOut", `${fmt(a / Math.PI, 2)}π`); set("supTOut", fmt(t, 2));
-    const main = canvas("mainCanvas", .5), ch = axes(main, { x: 0, y: 0, w: main.w, h: main.h }, -.1, 1.1, -2.4, 4.6, "posição u = x/L", "|Ψ|² e Re Ψ", { xDigits: 1 });
+    const main = canvas("mainCanvas", .5), ch = axes(main, { x: 0, y: 0, w: main.w, h: main.h }, -.1, 1.1, -2.4, 4.6, "posição u = x/a", "|Ψ|² e Re Ψ", { xDigits: 1 });
     walls(ch, 0, 1);
     for (let k = 6; k >= 1; k -= 1) line(ch, samples(0, 1, 200, (u) => P.twoLevel(u, t - k * period / 40, m, n, p, a).density), C.green, [], 1.2, .07 * (7 - k));
     const rho = samples(0, 1, 360, (u) => P.twoLevel(u, t, m, n, p, a).density);
     area(ch, rho, "rgba(97,155,96,.26)"); line(ch, rho, C.green, [], 2.8);
     line(ch, samples(0, 1, 360, (u) => P.twoLevel(u, t, m, n, p, a).re), C.gold, [6, 4], 1.6);
     const c = ch.ctx; c.setLineDash([4, 4]); c.strokeStyle = C.red; c.lineWidth = 1.6; c.beginPath(); c.moveTo(ch.X(mean), ch.top); c.lineTo(ch.X(mean), ch.bottom); c.stroke(); c.setLineDash([]);
-    dot(c, ch.X(mean), ch.Y(4.35), C.red, 6); label(c, `⟨x⟩ = ${fmt(mean, 3)} L`, ch.X(mean) + 8, ch.Y(4.35) + 4, C.red, "left", "bold 11px Ubuntu, system-ui");
+    dot(c, ch.X(mean), ch.Y(4.35), C.red, 6); label(c, `⟨x⟩ = ${fmt(mean, 3)} a`, ch.X(mean) + 8, ch.Y(4.35) + 4, C.red, "left", "bold 11px Ubuntu, system-ui");
     const sec = canvas("secondaryCanvas", .34), ctx = sec.ctx, wA = sec.w * .66;
-    const tr = axes(sec, { x: 0, y: 0, w: wA, h: sec.h }, 0, 6.28, .25, .75, "t (ℏ/E₁)", "⟨x⟩/L", { ticks: 4, yDigits: 2 });
+    const tr = axes(sec, { x: 0, y: 0, w: wA, h: sec.h }, 0, 6.28, .25, .75, "t (ℏ/E₁)", "⟨x⟩/a", { ticks: 4, yDigits: 2 });
     line(tr, samples(0, 6.28, 600, (q) => P.twoLevelMeanX(q, m, n, p, a)), C.red, [], 1.3, .3);
     line(tr, samples(0, Math.max(t, .001), 400, (q) => P.twoLevelMeanX(q, m, n, p, a)), C.red, [], 2.6);
     dot(ctx, tr.X(t), tr.Y(mean), C.red, 5);
@@ -195,18 +196,57 @@
     const sameParity = (m + n) % 2 === 0, amp = 2 * Math.sqrt((1 - p) * p) * Math.abs(P.xElement(m, n)), E = (1 - p) * P.boxEnergy(m) + p * P.boxEnergy(n);
     texts({ status: "Superposição", detail: `níveis ${m} e ${n} · |c${n}|² = ${fmt(p, 2)}`, title: sameParity ? "A densidade respira, mas o centro não se move" : "A densidade balança de um lado ao outro do poço",
       subtitle: `frequência de Bohr ω = (E${n} − E${m})/ℏ = ${fmt(omega, 0)} E₁/ℏ · período ${fmt(period, 3)} ℏ/E₁`,
-      caption: sameParity ? `Níveis de mesma paridade (${m} e ${n}) são ambos simétricos ou ambos antissimétricos em torno de L/2: a densidade muda de forma, mas permanece simétrica, e ⟨x⟩ fica em L/2 (x${m}${n} = 0).` : "A densidade vai e volta no poço, com um rastro dos instantes anteriores; ⟨x⟩ (vermelho) acompanha. O movimento vem do termo de interferência entre os dois níveis.",
+      caption: sameParity ? `Níveis de mesma paridade (${m} e ${n}) são ambos simétricos ou ambos antissimétricos em torno de a/2: a densidade muda de forma, mas permanece simétrica, e ⟨x⟩ fica em a/2 (x${m}${n} = 0).` : "A densidade vai e volta no poço, com um rastro dos instantes anteriores; ⟨x⟩ (vermelho) acompanha. O movimento vem do termo de interferência entre os dois níveis.",
       secondaryTitle: "⟨x⟩ no tempo e os fasores", secondarySubtitle: `os fasores giram com E${m}/ℏ e E${n}/ℏ; ⟨x⟩ depende só do ângulo entre eles`,
       secondaryCaption: "A amplitude de ⟨x⟩ é 2|c_m||c_n||x_mn|, máxima com pesos iguais. A fase α desloca a oscilação no tempo, mas não muda as probabilidades |c_m|² e |c_n|².",
       prediction: "Com os níveis 1 e 3, a densidade oscila? E ⟨x⟩? Por quê?",
-      calculation: `x<sub>${m}${n}</sub> = ∫ψ${m} x ψ${n} dx = ${sameParity ? "0 (mesma paridade)" : fmt(P.xElement(m, n), 4) + " L"}<br><b>⟨x⟩(t) = L/2 + 2|c${m}||c${n}| x<sub>${m}${n}</sub> cos(ωt − α)</b><small>⟨H⟩ = ${fmt(E, 3)} E₁ · amplitude de ⟨x⟩ = ${fmt(amp, 3)} L</small>`,
-      metrics: [["P(E" + m + ") · P(E" + n + ")", `${fmt(1 - p, 2)} · ${fmt(p, 2)}`], ["⟨H⟩", `${fmt(E, 3)} E₁`], ["período de Bohr", `${fmt(period, 3)} ℏ/E₁`], ["amplitude de ⟨x⟩", `${fmt(amp, 3)} L`]],
+      calculation: `x<sub>${m}${n}</sub> = ∫ψ${m} x ψ${n} dx = ${sameParity ? "0 (mesma paridade)" : fmt(P.xElement(m, n), 4) + " a"}<br><b>⟨x⟩(t) = a/2 + 2|c${m}||c${n}| x<sub>${m}${n}</sub> cos(ωt − α)</b><small>⟨H⟩ = ${fmt(E, 3)} E₁ · amplitude de ⟨x⟩ = ${fmt(amp, 3)} a</small>`,
+      metrics: [["P(E" + m + ") · P(E" + n + ")", `${fmt(1 - p, 2)} · ${fmt(p, 2)}`], ["⟨H⟩", `${fmt(E, 3)} E₁`], ["ΔH = √(p(1−p))·|Eₙ − Eₘ|", `${fmt(Math.sqrt(p * (1 - p)) * omega, 3)} E₁`], ["período de Bohr", `${fmt(period, 3)} ℏ/E₁`], ["amplitude de ⟨x⟩", `${fmt(amp, 3)} a`]],
       concept: "Uma superposição de energias diferentes não é estacionária: o termo cruzado oscila com a frequência de Bohr. Se os dois estados têm paridades opostas, o pacote balança de uma parede à outra; se têm a mesma paridade, ele só respira em torno do centro.",
-      prompts: ["Níveis 1 e 2 com pesos iguais: confira a amplitude 0,180 L do exemplo da nota.", "Troque para 1 e 3: a densidade ainda se move? E ⟨x⟩?", "Com 1 e 2, compare os períodos para (1,2) e (2,3): a frequência de Bohr cresce com 2n+1."],
+      prompts: ["Níveis 1 e 2 com pesos iguais: confira a amplitude 0,180 a do exemplo da nota.", "Use o preset do exercício, (ψ₁ + iψ₃)/√2: a densidade ainda se move? E ⟨x⟩? Confira ⟨H⟩ = 5E₁, ΔH = 4E₁ e o período 2πℏ/(8E₁).", "Com 1 e 2, compare os períodos para (1,2) e (2,3): a frequência de Bohr cresce com 2n+1."],
       legend: [[C.green, "|Ψ|² (com rastro)"], [C.gold, "Re Ψ", true], [C.red, "⟨x⟩"]] });
   }
 
-  // ================================================================ 04 · revivência
+  // ================================================================ 04 · expansão (truque de Fourier)
+  function drawExpansion() {
+    const key = $("expInit").value, init = P.INITIAL[key], N = v("expN"), t = v("expT");
+    set("expNOut", N); set("expTOut", fmt(t, 2));
+    if (state.exp.key !== key) state.exp = { key, coeffs: P.fourierCoefficients(init.f, 15) };
+    const all = state.exp.coeffs, used = all.slice(0, N), st = P.expansionStats(used), stAll = P.expansionStats(all);
+    const main = canvas("mainCanvas", .5), ch = axes(main, { x: 0, y: 0, w: main.w, h: main.h }, -.08, 1.08, -1.4, 2.6, "posição x/a", "Ψ (unid. a^−½) e |Ψ|² (unid. 1/a)", { xDigits: 1 });
+    walls(ch, 0, 1);
+    for (let k = 1; k <= N; k += 1) line(ch, samples(0, 1, 200, (u) => all[k - 1].re * P.boxWave(u, k)), LEVEL[(k - 1) % LEVEL.length], [], 1, .35);
+    line(ch, samples(0, 1, 400, (u) => init.f(u)), C.gray, [5, 4], 2);
+    line(ch, samples(0, 1, 400, (u) => P.packetPsi(used, u, 0).re), C.gold, [], 1.8, .75);
+    const dens = samples(0, 1, 400, (u) => P.packetPsi(used, u, t).density);
+    area(ch, dens, "rgba(69,123,157,.22)"); line(ch, dens, C.blue, [], 2.6);
+    line(ch, samples(0, 1, 400, (u) => P.packetPsi(used, u, t).re), C.green, [], 1.6);
+    // secundário: |c_n|² em escala log e leituras
+    const sec = canvas("secondaryCanvas", .34), ctx = sec.ctx, wB = sec.w * .66, floor = -5;
+    const bars = axes(sec, { x: 0, y: 0, w: wB, h: sec.h }, .3, 15.7, floor, 0, "n", "|cₙ|²", { ticks: 5, noX: true, yLabels: (y) => (y === 0 ? "1" : `10^${fmt(y, 0)}`) });
+    all.forEach((c, i) => {
+      const n = i + 1, p = c.re * c.re + c.im * c.im, h = Math.max(floor, Math.log10(Math.max(p, 1e-12))), x0 = bars.X(n - .36), x1 = bars.X(n + .36);
+      ctx.fillStyle = n <= N ? LEVEL[(n - 1) % LEVEL.length] : C.faint; ctx.fillRect(x0, bars.Y(h), x1 - x0, bars.Y(floor) - bars.Y(h));
+      label(ctx, `${n}`, (x0 + x1) / 2, bars.bottom + 13, n <= N ? C.ink : C.gray, "center", "10px Ubuntu, system-ui");
+      if (p > 1e-5 && n <= 5) label(ctx, fmt(p, p > .01 ? 3 : 5), (x0 + x1) / 2, bars.Y(h) - 4, C.ink, "center", "9px Ubuntu, system-ui");
+    });
+    const rx = wB + 14, rows = [["Σ|cₙ|² (N termos)", fmt(st.norm, 4)], ["Σ|cₙ|² (15 termos)", fmt(stAll.norm, 4)], ["⟨H⟩ (N termos)", `${fmt(st.energy, 3)} E₁`], ["P(E₁)", fmt(all[0].re ** 2, 4)]];
+    rows.forEach(([k, val], i) => { label(ctx, k, rx, 30 + i * 30, C.gray, "left", "10px Ubuntu, system-ui"); label(ctx, val, rx, 44 + i * 30, C.ink, "left", "bold 13px Ubuntu, system-ui"); });
+    const para = key === "parabola";
+    texts({ status: "Expansão", detail: `${init.name} · N = ${N}`, title: "Expandir é projetar: cₙ = ⟨n|Ψ(0)⟩", subtitle: "a base {ψₙ} é completa: qualquer Ψ(x,0) no poço é uma soma de autoestados",
+      caption: "Tracejado cinza: a condição inicial Ψ(x,0). Dourado: a soma dos N primeiros termos em t = 0 — com poucos termos ela já cola na parábola, mas o degrau precisa de muitos (e oscila nas bordas: fenômeno de Gibbs). Verde e azul: Re Ψ e |Ψ|² da soma evoluída no tempo, cada termo com sua fase e^(−iEₙt/ℏ). As curvas finas são os termos cₙψₙ.",
+      secondaryTitle: "Probabilidades de energia |cₙ|²", secondarySubtitle: "barras coloridas: termos incluídos na soma · cinza: ainda fora",
+      secondaryCaption: para ? "Na parábola, P(E₁) = 960/π⁶ = 0,9986 e os n pares se anulam: a parábola é simétrica em torno de a/2 e os ψₙ pares são antissimétricos. ⟨H⟩ = 5ℏ²/(ma²) = 1,013 E₁, pouco acima de E₁." : "Σ|cₙ|² tende a 1 à medida que N cresce; quanto mais abrupta a função, mais devagar. ⟨H⟩ = Σ|cₙ|²Eₙ: cantos e degraus custam energia cinética.",
+      prediction: para ? "Quantos termos a parábola A·x(a − x) precisa para ser indistinguível da soma? Que coeficientes serão nulos, e por quê?" : "Essa função é simétrica em torno de a/2? Então quais cₙ se anulam? A soma vai parar de mudar no tempo?",
+      calculation: para ? `cₙ = √(2/a)·√(30/a⁵)∫x(a − x) sen(nπx/a) dx<br><b>cₙ = 8√15/(nπ)³ (n ímpar), 0 (n par)</b><br>P(E₁) = 960/π⁶ = <b>0,99855</b><small>⟨H⟩ = Σ|cₙ|²Eₙ = (480/π⁴)E₁·Σ₍ímpar₎1/n⁴ = 5ℏ²/(ma²) = 1,013 E₁</small>` : `cₙ = ∫ψₙ(x)Ψ(x,0) dx (integração numérica)<br><b>c₁ = ${fmt(all[0].re, 4)} · c₂ = ${fmt(all[1].re, 4)} · c₃ = ${fmt(all[2].re, 4)}</b><small>Σ|cₙ|² com 15 termos: ${fmt(stAll.norm, 4)}</small>`,
+      metrics: [["condição inicial", init.name], ["termos N", N], ["Σ|cₙ|² (N termos)", fmt(st.norm, 4)], ["⟨H⟩ (N termos)", `${fmt(st.energy, 3)} E₁`], ["P(E₁)", fmt(all[0].re ** 2, 4)], ["P(E₂)", fmt(all[1].re ** 2, 4)]],
+      conceptTitle: "Truque de Fourier",
+      concept: "Multiplicar Ψ(x,0) = Σcₙψₙ por ψₘ e integrar mata todos os termos menos um, pela ortonormalidade: cₘ = ⟨m|Ψ(0)⟩. É a projeção de um vetor sobre uma base ortonormal, como vₓ = x̂·v. Depois, cada termo evolui com sua fase: Ψ(x,t) = Σcₙψₙe^(−iEₙt/ℏ). Σ|cₙ|² = 1 é a normalização e |cₙ|² é a probabilidade de medir Eₙ.",
+      prompts: ["Parábola, N = 1: quanto da função já está em ψ₁? Suba N: a soma muda visivelmente?", "Toque a animação com a parábola: por que |Ψ|² quase não se mexe? E com o degrau?", "Troque para o degrau e leia Σ|cₙ|² com 15 termos: por que falta tanto? Olhe as bordas da soma dourada.", "Compare ⟨H⟩ das três funções: qual custa mais energia e por quê?"],
+      legend: [[C.gray, "Ψ(x,0)", true], [C.gold, "soma em t = 0"], [C.green, "Re Ψ(x,t)"], [C.blue, "|Ψ(x,t)|²"]] });
+  }
+
+  // ================================================================ 05 · revivência
   function revKey() { return `${v("revU0")}|${v("revW")}|${v("revK")}`; }
   function revEnsure() {
     const key = revKey(); if (state.rev.key === key) return;
@@ -224,7 +264,7 @@
     set("revU0Out", fmt(u0, 2)); set("revWOut", fmt(w, 3)); set("revKOut", fmt(k0, 0)); set("revTOut", fmt(f, 3));
     const dens = samples(0, 1, 500, (u) => P.packetPsi(coeffs, u, t).density), init = samples(0, 1, 300, (u) => P.packetPsi(coeffs, u, 0).density);
     const top = Math.max(...init.map((p) => p.y)) * 1.15;
-    const main = canvas("mainCanvas", .5), ch = axes(main, { x: 0, y: 0, w: main.w, h: main.h }, -.06, 1.06, 0, top, "posição u = x/L", "|Ψ(x,t)|²", { xDigits: 1, noY: true });
+    const main = canvas("mainCanvas", .5), ch = axes(main, { x: 0, y: 0, w: main.w, h: main.h }, -.06, 1.06, 0, top, "posição u = x/a", "|Ψ(x,t)|²", { xDigits: 1, noY: true });
     walls(ch, 0, 1);
     line(ch, init, C.gray, [4, 4], 1.4, .7);
     area(ch, dens, "rgba(69,123,157,.25)"); line(ch, dens, C.blue, [], 2.4);
@@ -236,7 +276,7 @@
     [[.25, "T/4"], [.5, "T/2"], [.75, "3T/4"], [1, "T_rev"]].forEach(([q, s]) => { ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(box.left, Yt(q)); ctx.lineTo(box.right, Yt(q)); ctx.stroke(); ctx.setLineDash([]); label(ctx, s, box.left - 6, Yt(q) + 4, C.gray, "right", "10px Ubuntu, system-ui"); });
     ctx.strokeStyle = C.red; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(box.left, Yt(f)); ctx.lineTo(box.right, Yt(f)); ctx.stroke();
     label(ctx, "0", box.left - 6, box.top + 4, C.gray, "right", "10px Ubuntu, system-ui");
-    label(ctx, "x = 0", box.left, box.bottom + 14, C.gray, "left", "10px Ubuntu, system-ui"); label(ctx, "x = L", box.right, box.bottom + 14, C.gray, "right", "10px Ubuntu, system-ui");
+    label(ctx, "x = 0", box.left, box.bottom + 14, C.gray, "left", "10px Ubuntu, system-ui"); label(ctx, "x = a", box.right, box.bottom + 14, C.gray, "right", "10px Ubuntu, system-ui");
     label(ctx, "posição →   tempo ↓", (box.left + box.right) / 2, box.bottom + 14, C.gray, "center", "10px Ubuntu, system-ui");
     const nBar = coeffs.reduce((s, c) => s + (c.re ** 2 + c.im ** 2) * c.n * c.n, 0), sigma = Math.sqrt(coeffs.reduce((s, c) => s + (c.re ** 2 + c.im ** 2) * c.n ** 4, 0) - nBar * nBar);
     texts({ status: "Revivência", detail: `t = ${fmt(f, 3)} T_rev`, title: "O pacote se desfaz… e renasce", subtitle: "como Eₙ = n²E₁, todas as fases voltam juntas em T_rev = 2πℏ/E₁",
@@ -244,14 +284,14 @@
       secondaryTitle: "Tapete quântico: |Ψ(x,t)|² de 0 a T_rev", secondarySubtitle: "cada linha é um instante; a linha vermelha é o instante atual",
       secondaryCaption: "O desenho de canais e cruzamentos é a interferência entre os ~" + Math.round(sigma) + " níveis que compõem o pacote. Ele se repete com período T_rev e tem simetria de espelho em T_rev/2 — um padrão parecido com o efeito Talbot da óptica.",
       prediction: "Depois de o pacote se espalhar por todo o poço, ele volta a se juntar? Em que instante?",
-      calculation: `fases e<sup>−in²E₁t/ℏ</sup> = 1 para todo n<br>quando E₁t/ℏ = 2π<br><b>T_rev = 2πℏ/E₁ = 4mL²/(πℏ)</b><small>Ψ(x, T/2) = −Ψ(L − x, 0) (espelhado)</small>`,
+      calculation: `fases e<sup>−in²E₁t/ℏ</sup> = 1 para todo n<br>quando E₁t/ℏ = 2π<br><b>T_rev = 2πℏ/E₁ = 4ma²/(πℏ)</b><small>Ψ(x, T/2) = −Ψ(a − x, 0) (espelhado)</small>`,
       metrics: [["t / T_rev", fmt(f, 3)], ["níveis com peso relevante", `≈ ${Math.round(sigma * 2.5)} (n̄² ≈ ${fmt(nBar, 0)})`], ["Σ|cₙ|² (70 níveis)", fmt(coeffs.reduce((s, c) => s + c.re ** 2 + c.im ** 2, 0), 4)], ["para um elétron em 1 nm", "T_rev ≈ 11 fs"]],
       concept: "A revivência é um efeito puramente ondulatório: depende de as energias serem múltiplos inteiros de E₁. Uma partícula clássica quicando nunca 'renasce' assim. Revivências são observadas em pacotes de onda em átomos de Rydberg e em moléculas.",
       prompts: ["Toque a animação e marque os instantes em que o pacote parece desaparecer.", "Use os presets T/4, T/2 e T_rev: descreva o que vê em cada um.", "Aumente w: o tapete fica mais simples ou mais complexo? Por quê? (Pense em quantos níveis o pacote usa.)"],
       legend: [[C.blue, "|Ψ(x,t)|²"], [C.gray, "pacote inicial", true]] });
   }
 
-  // ================================================================ 05 · física médica
+  // ================================================================ 06 · física médica
   function spectrumBar(sec, marker, extras) {
     const ctx = sec.ctx, x0 = 54, x1 = sec.w - 16, y0 = 34, y1 = sec.h - 46, X = (nm) => x0 + (nm - 300) * (x1 - x0) / (1000 - 300);
     for (let nm = 300; nm < 1000; nm += 2) { ctx.fillStyle = spectralColor(nm); ctx.globalAlpha = nm >= 380 && nm <= 750 ? .85 : .35; ctx.fillRect(X(nm), y0, X(nm + 2) - X(nm) + .5, y1 - y0); }
@@ -351,10 +391,10 @@
   }
 
   // ---------------------------------------------------------------- animação e eventos
-  const draws = { spectrum: drawSpectrum, measure: drawMeasure, superposition: drawSuperposition, revival: drawRevival, medical: drawMedical };
+  const draws = { spectrum: drawSpectrum, measure: drawMeasure, superposition: drawSuperposition, expansion: drawExpansion, revival: drawRevival, medical: drawMedical };
   const render = () => draws[view]();
-  const playIds = { spectrum: "specT", superposition: "supT", revival: "revT" };
-  const speeds = { specT: .22, supT: .25, revT: .04 };
+  const playIds = { spectrum: "specT", superposition: "supT", expansion: "expT", revival: "revT" };
+  const speeds = { specT: .22, supT: .25, expT: .3, revT: .04 };
   let raf = 0;
   const busy = () => state.playing || (view === "measure" && (state.meas.streaming || state.meas.drops.length)) || (view === "medical" && state.med.photon >= 0);
   function kick() { if (!raf) { state.last = performance.now(); raf = requestAnimationFrame(frame); } }
@@ -385,7 +425,7 @@
     setPlaying(!reducedMotion && playIds[view] ? playIds[view] : null);
     render(); if (busy()) kick();
   }
-  const defaults = { spectrum: { specN: 2, specL: 1, specT: 0 }, measure: { measN: 1, measB: .25 }, superposition: { supM: 1, supN: 2, supP: .5, supA: 0, supT: 0 }, revival: { revU0: .3, revW: .05, revK: 30, revT: 0 }, medical: { dyeN: 10, qwA: 8 } };
+  const defaults = { spectrum: { specN: 2, specL: 1, specT: 0 }, measure: { measN: 1, measB: .25 }, superposition: { supM: 1, supN: 2, supP: .5, supA: 0, supT: 0 }, expansion: { expInit: "parabola", expN: 3, expT: 0 }, revival: { revU0: .3, revW: .05, revK: 30, revT: 0 }, medical: { dyeN: 10, qwA: 8 } };
   document.querySelector(".tabs").addEventListener("keydown", (e) => {
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) return;
     const tabs = [...document.querySelectorAll("[data-view]")], i = tabs.findIndex((t) => t.dataset.view === view);
@@ -393,9 +433,10 @@
     e.preventDefault(); tabs[j].focus(); switchView(tabs[j].dataset.view);
   });
   document.querySelectorAll("[data-view]").forEach((b) => b.addEventListener("click", () => switchView(b.dataset.view)));
-  document.querySelectorAll("input").forEach((el) => el.addEventListener("input", () => { if (el.id === "measN" || el.id === "measB") { const keep = state.meas.streaming; measClear(); state.meas.streaming = keep; updateStream(); } render(); }));
+  document.querySelectorAll("input, select").forEach((el) => el.addEventListener("input", () => { if (el.id === "measN" || el.id === "measB") { const keep = state.meas.streaming; measClear(); state.meas.streaming = keep; updateStream(); } render(); }));
   document.querySelectorAll("[data-play]").forEach((b) => b.addEventListener("click", () => setPlaying(state.playing === b.dataset.play ? null : b.dataset.play)));
   document.querySelectorAll("[data-zero]").forEach((b) => b.addEventListener("click", () => { $(b.dataset.zero).value = 0; render(); }));
+  document.querySelectorAll("[data-sup]").forEach((b) => b.addEventListener("click", () => { const [m, n, p, al] = b.dataset.sup.split(","); $("supM").value = m; $("supN").value = n; $("supP").value = p; $("supA").value = al; $("supT").value = 0; render(); }));
   document.querySelectorAll("[data-revt]").forEach((b) => b.addEventListener("click", () => { setPlaying(null); $("revT").value = b.dataset.revt; render(); }));
   document.querySelectorAll("[data-shots]").forEach((b) => b.addEventListener("click", () => { addSamples(Number(b.dataset.shots)); render(); }));
   $("measStream").addEventListener("click", () => { state.meas.streaming = !state.meas.streaming; updateStream(); kick(); });
@@ -408,7 +449,7 @@
     if (view === "measure") measClear();
     render();
   });
-  new URLSearchParams(location.search).forEach((value, key) => { const el = $(key); if (el && key !== "view" && el.tagName === "INPUT") el.value = value; });
+  new URLSearchParams(location.search).forEach((value, key) => { const el = $(key); if (el && key !== "view" && (el.tagName === "INPUT" || el.tagName === "SELECT")) el.value = value; });
   window.addEventListener("resize", render);
   switchView(view);
 })();

@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="Aplicação interativa da aula 4: separação de variáveis, estados estacionários, autovalores, superposição de dois níveis e E maior que o mínimo do potencial.">
+<meta name="description" content="Aplicação interativa da aula 4: separação de variáveis, estados estacionários, autovalores, superposição de dois níveis, E maior que o mínimo do potencial e operadores hermitianos.">
 <title>Aula 4 · Estados estacionários</title>
 <link rel="stylesheet" href="../_shared/dashboard.css?v=7716005a8c">
-<link rel="stylesheet" href="styles.css?v=c35a5a32d1">
+<link rel="stylesheet" href="styles.css?v=90d9c9bbc3">
 </head>
 <body>
 <a class="skip-link" href="#simulador">Ir para o simulador</a>
@@ -16,7 +16,7 @@
   <div>
     <p class="eyebrow">Mecânica Quântica · Aula 4</p>
     <h1>Estados estacionários e autovalores</h1>
-    <p class="subtitle">Separação de variáveis, fase, energia e superposição.</p>
+    <p class="subtitle">Separação de variáveis, fase, energia, superposição e hermiticidade.</p>
   </div>
   <div class="status" aria-live="polite"><span>Estação atual</span><strong id="statusTitle"></strong><small id="statusDetail"></small></div>
 </header>
@@ -27,6 +27,7 @@
   <button data-view="eigen" role="tab" aria-selected="false"><b>03</b><span>Autovalor</span></button>
   <button data-view="twolevel" role="tab" aria-selected="false"><b>04</b><span>Dois níveis</span></button>
   <button data-view="vmin" role="tab" aria-selected="false"><b>05</b><span>E &gt; V<sub>mín</sub></span></button>
+  <button data-view="hermitian" role="tab" aria-selected="false"><b>06</b><span>Hermitiano</span></button>
 </nav>
 
 <section class="workspace">
@@ -79,6 +80,18 @@
       <div class="action-bar"><button type="button" id="vminRelax">▶ Relaxar</button><button type="button" class="quiet" id="vminBack">Voltar à função de teste</button></div>
       <p class="hint">“Relaxar” evolui ψ em tempo imaginário: as componentes de energia mais alta decaem mais depressa e sobra o estado fundamental.</p>
     </section>
+
+    <section class="view-controls" data-controls="hermitian">
+      <h3>Operador na base do poço</h3>
+      <p class="equation">Q<sub>mn</sub> = ⟨m|Q̂|n⟩ = ∫ψ<sub>m</sub>* Q̂ψ<sub>n</sub> dx</p>
+      <label class="state-select"><span>operador Q̂</span><select id="hermOp"><option value="p">p̂ = −iℏ d/dx</option><option value="d">d/dx</option><option value="x">x̂</option><option value="H">Ĥ (V real)</option><option value="Hc">Ĥ com V = −iΓ (absorção)</option></select></label>
+      <label><span>linha m (bra ⟨m|)</span><output id="hermMOut"></output><input id="hermM" type="range" min="1" max="5" step="1" value="1"></label>
+      <label><span>coluna n (ket |n⟩)</span><output id="hermNOut"></output><input id="hermN" type="range" min="1" max="5" step="1" value="2"></label>
+      <div id="hermGammaWrap" hidden><label><span>Γ (unid. E₁)</span><output id="hermGammaOut"></output><input id="hermGamma" type="range" min="0" max=".5" step=".01" value=".15"></label></div>
+      <label><span>tempo t (ℏ/E₁)</span><output id="hermTOut"></output><input id="hermT" type="range" min="0" max="6.28" step=".005" value="0"></label>
+      <div class="action-bar"><button type="button" data-play="hermT">❚❚ Pausar</button><button type="button" class="quiet" data-zero="hermT">t = 0</button></div>
+      <p class="hint">Hermitiano: Q<sub>mn</sub> = Q<sub>nm</sub>* (matriz igual à transposta conjugada). Anti-hermitiano: Q<sub>mn</sub> = −Q<sub>nm</sub>*.</p>
+    </section>
   </aside>
 
   <section class="stage" aria-label="Visualizações">
@@ -105,7 +118,7 @@
 
 <footer><span>Biocomplexity Lab · material didático</span><span>Instituto de Biociências de Botucatu — UNESP · Depto. de Biofísica e Farmacologia · Prof. Assoc. José L. Rybarczyk-Filho</span></footer>
 </main>
-<script src="physics.js?v=c9ee86ab46"></script>
-<script src="app.js?v=200a689ada"></script>
+<script src="physics.js?v=56b4df18be"></script>
+<script src="app.js?v=5d84dfed33"></script>
 </body>
 </html>
