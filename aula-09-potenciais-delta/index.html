@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Aplicação interativa da aula 9: potencial delta de Dirac, salto da derivada, estado ligado, espalhamento, polo da transmissão e o doador raso no detector HPGe.">
+<title>Aula 9 · Potenciais delta de Dirac</title>
+<link rel="stylesheet" href="../_shared/dashboard.css?v=7716005a8c">
+<link rel="stylesheet" href="styles.css?v=c76cd8d263">
+</head>
+<body>
+<a class="skip-link" href="#simulador">Ir para o simulador</a>
+<main id="simulador" class="app-shell">
+<header class="topbar">
+  <div class="brand"><b>BIOCOMPLEXITY</b><small>LAB · IB/UNESP</small></div>
+  <div>
+    <p class="eyebrow">Mecânica Quântica · Aula 9</p>
+    <h1>Potenciais delta de Dirac</h1>
+    <p class="subtitle">Um único estado ligado, um salto em ψ′, e o polo que liga espalhamento e ligação.</p>
+  </div>
+  <div class="status" aria-live="polite"><span>Estação atual</span><strong id="statusTitle"></strong><small id="statusDetail"></small></div>
+</header>
+
+<nav class="tabs" role="tablist" aria-label="Estações da aula">
+  <button class="active" data-view="ligado" role="tab" aria-selected="true"><b>01</b><span>Estado ligado</span></button>
+  <button data-view="espalhamento" role="tab" aria-selected="false"><b>02</b><span>Espalhamento</span></button>
+  <button data-view="polo" role="tab" aria-selected="false"><b>03</b><span>Polo e estado ligado</span></button>
+  <button data-view="hpge" role="tab" aria-selected="false"><b>04</b><span>Física médica · HPGe</span></button>
+</nav>
+
+<section class="workspace">
+  <aside class="controls" aria-label="Controles da estação">
+    <div class="panel-title"><h2>Parâmetros</h2><button id="resetBtn" type="button">Reiniciar</button></div>
+
+    <section class="view-controls active" data-controls="ligado">
+      <h3>Delta atrativa V = −αδ(x)</h3>
+      <p class="equation">ψ(x) = √κ e<sup>−κ|x|</sup>, κ = mα/ħ², E = −mα²/(2ħ²)</p>
+      <label><span>intensidade α (sem unidade; ħ = m = 1)</span><output id="ligAOut"></output><input id="ligA" type="range" min=".2" max="3" step=".01" value="1"></label>
+      <p class="hint">Fixo: forma do potencial (uma única delta em x = 0) e as unidades reduzidas ħ = m = 1, em que κ = α e E = −α²/2 (só razões importam).</p>
+    </section>
+
+    <section class="view-controls" data-controls="espalhamento">
+      <h3>Delta V = gδ(x), γ = mg/ħ²</h3>
+      <p class="equation">V = gδ(x), k = √(2mE)/ħ; r = γ/(ik − γ), t = ik/(ik − γ)</p>
+      <label><span>intensidade |γ|</span><output id="espGOut"></output><input id="espG" type="range" min=".2" max="4" step=".01" value="2"></label>
+      <div class="seg" role="group" aria-label="Sinal da delta"><button type="button" id="espRep" class="on">repulsiva (γ &gt; 0)</button><button type="button" id="espAtr">atrativa (γ &lt; 0)</button></div>
+      <label><span>energia E (sem unidade; ħ = m = 1)</span><output id="espEOut"></output><input id="espE" type="range" min=".05" max="8" step=".01" value="4.5"></label>
+      <p class="hint">Padrão: γ = 2 e E = 4,5 (k = 3) — o exemplo da nota (γ = 2 nm⁻¹, k = 3 nm⁻¹, E = 0,343 eV) em unidades reduzidas; R e T só dependem de γ/k, logo R = 4/13 nos dois casos. Fixo: uma única delta em x = 0.</p>
+    </section>
+
+    <section class="view-controls" data-controls="polo">
+      <h3>Delta atrativa, γ = −κ₀</h3>
+      <p class="equation">t(k) = ik/(ik + κ₀); polo em k = iκ₀</p>
+      <label><span>intensidade α (sem unidade; ħ = m = 1)</span><output id="polAOut"></output><input id="polA" type="range" min=".2" max="3" step=".01" value="1"></label>
+      <p class="hint">Fixo: o sinal (atrativa). À esquerda, k real (E &gt; 0); à direita, k = iq no eixo imaginário.</p>
+    </section>
+
+    <section class="view-controls" data-controls="hpge">
+      <h3>Doador raso no detector HPGe</h3>
+      <p class="equation">κ = √(E<sub>b</sub>/(ħ²/2m*)), σ<sub>x</sub> = 1/(√2 κ); n<sub>i</sub> = √(N<sub>c</sub>N<sub>v</sub>) e<sup>−E<sub>g</sub>/2k<sub>B</sub>T</sup></p>
+      <label><span>energia de ligação E<sub>b</sub> (meV)</span><output id="medEbOut"></output><input id="medEb" type="range" min="5" max="50" step=".1" value="12.7"></label>
+      <label><span>massa efetiva m*/m<sub>e</sub></span><output id="medMOut"></output><input id="medM" type="range" min=".05" max="1" step=".01" value=".12"></label>
+      <label><span>temperatura T (K)</span><output id="medTOut"></output><input id="medT" type="range" min="77" max="300" step="1" value="300"></label>
+      <div class="presets"><button type="button" data-medt="77">nitrogênio líquido, 77 K</button><button type="button" data-medt="300">temperatura ambiente, 300 K</button></div>
+      <label><span>doadores log<sub>10</sub> N<sub>D</sub> (cm⁻³)</span><output id="medNDOut"></output><input id="medND" type="range" min="9" max="14" step=".5" value="10"></label>
+      <p class="hint">Fixo: ħ²/2m<sub>e</sub> = 0,0381 eV·nm², k<sub>B</sub> = 8,617×10⁻⁵ eV/K, célula do Ge = 0,57 nm; dados do Ge: E<sub>g</sub> = 0,66 eV, N<sub>c</sub> = 1,04×10¹⁹ e N<sub>v</sub> = 6,0×10¹⁸ cm⁻³ a 300 K (escala T<sup>3/2</sup>), ε<sub>r</sub> = 16, espessura 1 cm. HPGe real: N<sub>D</sub> ≈ 10¹⁰; Ge comum: 10¹³.</p>
+    </section>
+  </aside>
+
+  <section class="stage" aria-label="Visualizações">
+    <article class="canvas-panel">
+      <div class="chart-heading"><div><h2 id="mainTitle"></h2><p id="mainSubtitle"></p></div><div id="legend" class="legend"></div></div>
+      <canvas id="mainCanvas" role="img" aria-label="Visualização principal da estação"></canvas>
+      <p id="caption" class="caption"></p>
+    </article>
+    <article class="canvas-panel secondary-panel">
+      <div class="chart-heading"><div><h2 id="secondaryTitle"></h2><p id="secondarySubtitle"></p></div></div>
+      <canvas id="secondaryCanvas" role="img" aria-label="Visualização complementar"></canvas>
+      <p id="secondaryCaption" class="caption"></p>
+    </article>
+  </section>
+
+  <aside class="analysis" aria-label="Análise quantitativa">
+    <section class="predict"><span>Preveja antes de mover</span><p id="prediction"></p></section>
+    <section><h2>Conta aberta</h2><div id="calculation" class="calculation"></div></section>
+    <section><h2>Leituras</h2><dl id="metrics"></dl></section>
+    <section><h2 id="conceptTitle">Ideia física</h2><p id="conceptText"></p></section>
+    <section><h2>Investigue</h2><ol id="prompts"></ol></section>
+  </aside>
+</section>
+
+<footer><span>Biocomplexity Lab · material didático</span><span>Instituto de Biociências de Botucatu — UNESP · Depto. de Biofísica e Farmacologia · Prof. Assoc. José L. Rybarczyk-Filho</span></footer>
+</main>
+<script src="physics.js?v=3e2ba27511"></script>
+<script src="app.js?v=205ce9fdb0"></script>
+</body>
+</html>

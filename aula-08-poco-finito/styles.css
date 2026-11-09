@@ -1,0 +1,14 @@
+/* Complementos da aula 8 sobre ../_shared/dashboard.css (quatro abas, equação, dica). */
+.tabs { grid-template-columns: repeat(4, 1fr); }
+.equation { margin: 4px 0 12px; padding: 9px 10px; border-left: 3px solid var(--dark); border-radius: 0 6px 6px 0; background: #f4f7f2; font-family: Georgia, serif; font-size: .8rem; line-height: 1.5; }
+.hint { margin: 12px 0 0; color: var(--muted); font-size: .68rem; line-height: 1.45; }
+.calculation small { display: block; margin-top: 4px; color: var(--muted); font-size: .7rem; }
+.calculation .limit { margin-top: 6px; color: #a66c17; font-size: .68rem; text-align: left; }
+.calculation .clinic { margin-top: 6px; color: var(--muted); font-size: .66rem; text-align: left; }
+.ext { margin: 12px 0 0; padding: 8px 10px; border: 1px dashed var(--line, #c9d3c9); border-radius: 6px; }
+.ext legend { padding: 0 4px; color: #a66c17; font-size: .64rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.ext .check { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: .7rem; }
+.ext .check input { width: auto; margin: 0; }
+#conceptBox.pending p { color: var(--muted); font-style: italic; }
+@media (max-width: 1100px) { .tabs { grid-template-columns: repeat(2, 1fr); } }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }

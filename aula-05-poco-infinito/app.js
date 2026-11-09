@@ -96,7 +96,7 @@
   function drawSpectrum() {
     const n = v("specN"), a = v("specL"), t = v("specT"), E = (k) => P.boxEnergy(k, a), top = E(6) * 1.12;
     set("specNOut", n); set("specLOut", fmt(a, 2)); set("specTOut", fmt(t, 2));
-    const main = canvas("mainCanvas", .5), ch = axes(main, { x: 0, y: 0, w: main.w, h: main.h }, -.12, 1.85, 0, top, "posição x (a₀)", "energia (E₁ de a₀)", { xDigits: 2, yDigits: 0 });
+    const main = canvas("mainCanvas", .5), ch = axes(main, { x: 0, y: 0, w: main.w, h: main.h }, -.12, 1.85, 0, top, "posição x (nm)", "energia (unid. E₁ de 1 nm = 0,376 eV)", { xDigits: 2, yDigits: 0 });
     walls(ch, 0, a);
     for (let k = 1; k <= 6; k += 1) {
       const sel = k === n, base = E(k), next = k < 6 ? E(k + 1) - E(k) : E(6) - E(5), amp = Math.min(top * .05, next * .38), col = LEVEL[k - 1];
@@ -110,22 +110,24 @@
       arrow(ch.ctx, x, y1 + 4, x, y2 - 4, C.ink, 2);
       label(ch.ctx, `ΔE = ${fmt(E(n) - E(n - 1), 2)}`, x + 6, (y1 + y2) / 2 + 4, C.ink, "left", "10px Ubuntu, system-ui");
     }
-    const sec = canvas("secondaryCanvas", .34), w = axes(sec, { x: 0, y: 0, w: sec.w, h: sec.h }, -.12, 1.85, -2.6, 2.6, "posição x (a₀)", `ψ${n} e |ψ${n}|²`, { xDigits: 2, ticks: 4 });
+    // |ψ|² chega a 2/a (4 nm⁻¹ em a = 0,5 nm): o eixo cresce para não cortar a densidade nos poços estreitos.
+    const yTop = Math.max(2.6, 1.1 * 2 / a);
+    const sec = canvas("secondaryCanvas", .34), w = axes(sec, { x: 0, y: 0, w: sec.w, h: sec.h }, -.12, 1.85, -yTop, yTop, "posição x (nm)", `ψ${n} e |ψ${n}|²`, { xDigits: 2, ticks: 4 });
     walls(w, 0, a);
     area(w, samples(0, a, 300, (x) => P.boxWave(x / a, n) ** 2 / a), "rgba(69,123,157,.18)");
     line(w, samples(0, a, 300, (x) => P.boxWave(x / a, n) / Math.sqrt(a) * Math.cos(P.boxEnergy(n, a) * t)), LEVEL[n - 1], [], 2.8);
     line(w, samples(0, a, 300, (x) => P.boxWave(x / a, n) / Math.sqrt(a)), LEVEL[n - 1], [3, 4], 1.2, .5);
     line(w, samples(0, a, 300, (x) => -P.boxWave(x / a, n) / Math.sqrt(a)), LEVEL[n - 1], [3, 4], 1.2, .5);
     for (let j = 1; j < n; j += 1) { dot(sec.ctx, w.X(a * j / n), w.Y(0), C.red, 4.5); }
-    texts({ status: "Espectro", detail: `n = ${n} · a = ${fmt(a, 2)} a₀`, title: "Níveis do poço e suas ondas estacionárias", subtitle: "Eₙ ∝ n²/a²: só cabem ondas que zeram nas duas paredes",
+    texts({ status: "Espectro", detail: `n = ${n} · a = ${fmt(a, 2)} nm`, title: "Níveis do poço e suas ondas estacionárias", subtitle: "Eₙ ∝ n²/a²: só cabem ondas que zeram nas duas paredes",
       caption: "Cada nível traz sua autofunção desenhada na própria energia, vibrando com a frequência Eₙ/ℏ: os níveis de cima vibram mais depressa. A seta mostra a transição para o nível de baixo, que emite um fóton de energia ΔE.",
       secondaryTitle: `Autofunção do nível n = ${n}`, secondarySubtitle: `${n - 1} nó(s) interno(s) (pontos vermelhos) · envoltória tracejada`,
       secondaryCaption: "A onda estacionária respira entre as envoltórias ±ψₙ(x), mas a densidade (azul claro) fica parada. Os nós estão nas mesmas posições em qualquer instante.",
       prediction: "Ao estreitar o poço (a menor), os níveis sobem ou descem? Por qual fator mudam quando a cai à metade?",
-      calculation: `Eₙ = n²π²ℏ²/(2ma²)<br><b>E${n} = ${fmt(E(n), 3)} E₁(a₀)</b><small>E${Math.min(n + 1, 6)} − E${Math.min(n + 1, 6) - 1} = ${fmt(n < 6 ? E(n + 1) - E(n) : E(6) - E(5), 3)} = (2n+1)E₁/a²</small><small>λₙ = 2L/n = ${fmt(2 * a / n, 3)} a₀</small>`,
-      metrics: [["n", n], ["a/a₀", fmt(a, 2)], ["Eₙ/E₁(a₀)", fmt(E(n), 3)], ["nós internos", n - 1], ["Δx · Δp/ℏ", fmt(P.deltaX(n) * P.deltaP(n), 3)], ["elétron, a₀ = 1 nm: E₁", `${fmt(P.levelEV(1, a), 3)} eV`], [`fóton ${n} → 1`, n > 1 ? `${fmt(P.wavelengthNm(P.levelEV(n, a) - P.levelEV(1, a)), 0)} nm` : "—"]],
+      calculation: `Eₙ = n²π²ℏ²/(2ma²) = n² × 0,376 eV/(a/nm)²<br><b>E${n} = ${fmt(E(n), 3)} × 0,376 eV = ${fmt(P.levelEV(n, a), 3)} eV</b> (elétron, a = ${fmt(a, 2)} nm)<small>E${Math.min(n + 1, 6)} − E${Math.min(n + 1, 6) - 1} = ${fmt(n < 6 ? E(n + 1) - E(n) : E(6) - E(5), 3)} × 0,376 eV: espaçamento (2n+1)E₁</small><small>λₙ = 2a/n = ${fmt(2 * a / n, 3)} nm</small>`,
+      metrics: [["n · nós internos", `${n} · ${n - 1}`], ["largura a", `${fmt(a, 2)} nm`], ["E₁ (elétron)", `${fmt(P.levelEV(1, a), 3)} eV`], [`E${n}`, `${fmt(P.levelEV(n, a), 3)} eV`], ["Δx · Δp/ℏ", fmt(P.deltaX(n) * P.deltaP(n), 3)], [`fóton ${n} → 1`, n === 1 ? "—" : n % 2 ? `proibido: ⟨1|x|${n}⟩ = 0 (paridade)` : `${fmt(P.wavelengthNm(P.levelEV(n, a) - P.levelEV(1, a)), 0)} nm`]],
       concept: "A equação Hψ = Eψ aceita qualquer E; as paredes, que exigem ψ(0) = ψ(a) = 0, só deixam passar ondas com um número inteiro de meios comprimentos de onda. É o mesmo princípio das cordas de um violão.",
-      prompts: ["Reduza a à metade e confira o fator nas energias.", "Compare E₂ − E₁ com E₃ − E₂: os níveis se afastam como (2n+1)E₁.", "Relacione n ao número de nós e à rapidez da vibração.", "Com a₀ = 1 nm, confira o exemplo da nota: E₁ = 0,376 eV e o fóton 3 → 1 em 412 nm (violeta). Com a = 0,5 nm?"],
+      prompts: ["Reduza a à metade e confira o fator nas energias.", "Compare E₂ − E₁ com E₃ − E₂: os níveis se afastam como (2n+1)E₁.", "Relacione n ao número de nós e à rapidez da vibração.", "Com a = 1 nm, confira o exemplo da nota: E₁ = 0,376 eV e o fóton 2 → 1 (3E₁ = 1,128 eV) em 1099 nm. Com a = 0,5 nm? Por que n = 3 → 1 aparece como proibida (⟨1|x|3⟩ = 0)?"],
       legend: [[LEVEL[n - 1], "nível selecionado"], [C.faint, "demais níveis"], [C.blue, "|ψₙ|²"]] });
   }
 
@@ -381,11 +383,11 @@
         secondaryTitle: "Comprimento de onda emitido", secondarySubtitle: "808 nm: laser de diodo usado em fotobiomodulação e em depilação a laser",
         secondaryCaption: "Lasers de diodo de poço quântico em ~800–810 nm são comuns em medicina: fotobiomodulação (laserterapia de baixa potência), depilação, odontologia. A luz cai na janela óptica e penetra no tecido. Estreitar o poço encurta o comprimento de onda, até chegar ao visível.",
         prediction: "Estreitar o poço desloca a emissão para o azul ou para o vermelho? Por que o buraco contribui menos que o elétron?",
-        calculation: `E₁ = h²/(8m*a²)<br>elétron (m* = 0,067 mₑ): ${fmt(q.electron, 3)} eV · buraco (0,51 mₑ): ${fmt(q.hole, 4)} eV<br>E = 1,424 + ${fmt(q.electron + q.hole, 3)} = <b>${fmt(q.photon, 3)} eV</b><br>λ = hc/E = <b>${fmt(q.wavelength, 0)} nm</b><small>sem confinamento (GaAs volumétrico): ${fmt(q.bulk, 0)} nm</small>`,
+        calculation: `E₁ = h²/(8m*a²)<br>elétron (m* = 0,067 mₑ): ${fmt(q.electron, 3)} eV · buraco (0,51 mₑ): ${fmt(q.hole, 4)} eV<br>E = 1,424 + ${fmt(q.electron + q.hole, 3)} = <b>${fmt(q.photon, 3)} eV</b><br>λ = hc/E = <b>${fmt(q.wavelength, 0)} nm</b><small>sem confinamento (GaAs volumétrico): ${fmt(q.bulk, 0)} nm</small>${a < 5 ? `<small>limite: E₁(e) = ${fmt(q.electron, 3)} eV ultrapassa o desnível ΔE_c ≈ 0,24 eV da barreira de AlGaAs — o poço infinito deixa de valer (Aula 8)</small>` : ""}`,
         metrics: [["largura a", `${fmt(a, 1)} nm`], ["E₁ do elétron", `${fmt(q.electron * 1000, 0)} meV`], ["E₁ do buraco", `${fmt(q.hole * 1000, 1)} meV`], ["energia do fóton", `${fmt(q.photon, 3)} eV`], ["λ emitido", `${fmt(q.wavelength, 0)} nm`]],
         conceptTitle: "Engenharia de poço quântico",
         concept: "O confinamento soma energia ao gap do material: quanto mais estreita a camada, maior E₁ ∝ 1/(m*a²) e mais curto o comprimento de onda. O buraco pesado (m* maior) contribui menos. Como as barreiras reais são finitas, o modelo de paredes infinitas exagera um pouco as energias, mas dá a ordem de grandeza certa.",
-        prompts: ["Encontre a largura que dá ~808 nm.", "Compare a = 4 nm e a = 20 nm: quanto muda a energia do fóton? E com a muito grande?", "Por que a massa efetiva do elétron (0,067 mₑ) torna o confinamento tão importante?"],
+        prompts: ["Encontre a largura que dá ~808 nm.", "Compare a = 6 nm e a = 20 nm: quanto muda a energia do fóton? E com a muito grande?", "Por que a massa efetiva do elétron (0,067 mₑ) torna o confinamento tão importante?"],
         legend: [[C.blue, "elétron"], [C.red, "buraco"], [color, "fóton emitido"]] });
     }
   }

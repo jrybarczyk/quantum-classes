@@ -52,9 +52,9 @@
 
     <section class="view-controls" data-controls="eigen">
       <h3>Níveis do poço</h3>
-      <p class="equation">Eₙ = n²π²ℏ²/(2mL²)</p>
+      <p class="equation">Eₙ = n²π²ℏ²/(2ma²)</p>
       <label><span>nível selecionado n</span><output id="eigNOut"></output><input id="eigN" type="range" min="1" max="6" step="1" value="2"></label>
-      <label><span>largura L (L₀)</span><output id="eigLOut"></output><input id="eigL" type="range" min=".6" max="1.8" step=".02" value="1"></label>
+      <label><span>largura a (a_ref)</span><output id="eigLOut"></output><input id="eigL" type="range" min=".6" max="1.8" step=".02" value="1"></label>
       <label><span>tempo t (ℏ/E₁)</span><output id="eigTOut"></output><input id="eigT" type="range" min="0" max="6.28" step=".005" value="0"></label>
       <div class="action-bar"><button type="button" data-play="eigT">❚❚ Pausar</button><button type="button" class="quiet" data-zero="eigT">t = 0</button></div>
     </section>
@@ -84,7 +84,7 @@
     <section class="view-controls" data-controls="hermitian">
       <h3>Operador na base do poço</h3>
       <p class="equation">Q<sub>mn</sub> = ⟨m|Q̂|n⟩ = ∫ψ<sub>m</sub>* Q̂ψ<sub>n</sub> dx</p>
-      <label class="state-select"><span>operador Q̂</span><select id="hermOp"><option value="p">p̂ = −iℏ d/dx</option><option value="d">d/dx</option><option value="x">x̂</option><option value="H">Ĥ (V real)</option><option value="Hc">Ĥ com V = −iΓ (absorção)</option></select></label>
+      <label class="state-select"><span>operador Q̂</span><select id="hermOp"><option value="p">p̂ = −iℏ d/dx</option><option value="d">d/dx</option><option value="x">x̂</option><option value="H">Ĥ (V real)</option><option value="Hc">Ĥ com V = V_R − iΓ (absorção)</option></select></label>
       <label><span>linha m (bra ⟨m|)</span><output id="hermMOut"></output><input id="hermM" type="range" min="1" max="5" step="1" value="1"></label>
       <label><span>coluna n (ket |n⟩)</span><output id="hermNOut"></output><input id="hermN" type="range" min="1" max="5" step="1" value="2"></label>
       <div id="hermGammaWrap" hidden><label><span>Γ (unid. E₁)</span><output id="hermGammaOut"></output><input id="hermGamma" type="range" min="0" max=".5" step=".01" value=".15"></label></div>
@@ -118,7 +118,7 @@
 
 <footer><span>Biocomplexity Lab · material didático</span><span>Instituto de Biociências de Botucatu — UNESP · Depto. de Biofísica e Farmacologia · Prof. Assoc. José L. Rybarczyk-Filho</span></footer>
 </main>
-<script src="physics.js?v=56b4df18be"></script>
-<script src="app.js?v=5d84dfed33"></script>
+<script src="physics.js?v=375cd2f6c5"></script>
+<script src="app.js?v=dafb521033"></script>
 </body>
 </html>

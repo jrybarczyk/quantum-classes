@@ -1,0 +1,14 @@
+/* Complementos da aula 9 sobre ../_shared/dashboard.css (quatro abas, equação, presets, seletor de sinal). */
+.tabs { grid-template-columns: repeat(4, 1fr); }
+.equation { margin: 4px 0 12px; padding: 9px 10px; border-left: 3px solid var(--dark); border-radius: 0 6px 6px 0; background: #f4f7f2; font-family: Georgia, serif; font-size: .82rem; }
+.presets { display: grid; gap: 7px; margin-top: 10px; }
+.presets button { min-height: 32px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--dark); font-size: .7rem; cursor: pointer; }
+.presets button:hover, .seg button:hover { filter: brightness(1.06); }
+.hint { margin: 12px 0 0; color: var(--muted); font-size: .68rem; line-height: 1.45; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 6px 0 4px; }
+.seg button { min-height: 32px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--muted); font-size: .7rem; cursor: pointer; }
+.seg button.on { border-color: var(--dark); background: #f4faef; color: var(--ink); font-weight: 700; }
+.calculation small { display: block; margin-top: 4px; color: var(--muted); font-size: .7rem; }
+.calculation .warn { color: #a66c17; }
+@media (max-width: 1100px) { .tabs { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 760px) { .tabs { grid-template-columns: 1fr; } }

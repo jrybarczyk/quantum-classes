@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Aplicação interativa da aula 10: oscilador harmônico quântico — quantização por tiro, autofunções de Hermite, limite clássico e espectroscopia vibracional de tecidos.">
+<title>Aula 10 · Oscilador harmônico</title>
+<link rel="stylesheet" href="../_shared/dashboard.css?v=7716005a8c">
+<link rel="stylesheet" href="styles.css?v=e2ccd5ff2e">
+</head>
+<body>
+<a class="skip-link" href="#simulador">Ir para o simulador</a>
+<main id="simulador" class="app-shell">
+<header class="topbar">
+  <div class="brand"><b>BIOCOMPLEXITY</b><small>LAB · IB/UNESP</small></div>
+  <div>
+    <p class="eyebrow">Mecânica Quântica · Aula 10</p>
+    <h1>Oscilador harmônico — solução analítica</h1>
+    <p class="subtitle">Quase toda energia diverge: por que só ε = n + ½ sobrevive, o que são as autofunções de Hermite e onde o oscilador aparece no tecido.</p>
+  </div>
+  <div class="status" aria-live="polite"><span>Estação atual</span><strong id="statusTitle"></strong><small id="statusDetail"></small></div>
+</header>
+
+<nav class="tabs" role="tablist" aria-label="Estações da aula">
+  <button class="active" data-view="tiro" role="tab" aria-selected="true"><b>01</b><span>Quantização por tiro</span></button>
+  <button data-view="hermite" role="tab" aria-selected="false"><b>02</b><span>Autofunções e pontos de retorno</span></button>
+  <button data-view="classico" role="tab" aria-selected="false"><b>03</b><span>Limite clássico</span></button>
+  <button data-view="medica" role="tab" aria-selected="false"><b>04</b><span>Física médica</span></button>
+</nav>
+
+<section class="workspace">
+  <aside class="controls" aria-label="Controles da estação">
+    <div class="panel-title"><h2>Parâmetros</h2><button id="resetBtn" type="button">Reiniciar</button></div>
+
+    <section class="view-controls active" data-controls="tiro">
+      <h3>Integração numérica</h3>
+      <p class="equation">ψ″ + (2ε − ξ²)ψ = 0, ξ = x/ℓ, ε = E/ħω</p>
+      <p class="hint">Variável: a energia ε. Fixos: ξ<sub>máx</sub> = 6, passo h = 0,01 (RK4), condição inicial pela paridade.</p>
+      <label><span>energia ε = E/ħω</span><output id="tiroEpsOut"></output><input id="tiroEps" type="range" min="0" max="4.5" step="0.01" value="0.5"></label>
+      <label class="state-select"><span>paridade da solução</span><select id="tiroParity"><option value="par">par: ψ(0) = 1, ψ′(0) = 0</option><option value="impar">ímpar: ψ(0) = 0, ψ′(0) = 1</option></select></label>
+      <div class="presets"><button type="button" data-eps="0.5">ε = 0,5</button><button type="button" data-eps="1.5">ε = 1,5</button><button type="button" data-eps="2.5">ε = 2,5</button></div>
+    </section>
+
+    <section class="view-controls" data-controls="hermite">
+      <h3>Autofunções de Hermite</h3>
+      <p class="equation">ψ<sub>n</sub>(ξ) = π<sup>−1/4</sup>(2<sup>n</sup>n!)<sup>−1/2</sup> H<sub>n</sub>(ξ) e<sup>−ξ²/2</sup></p>
+      <p class="hint">Variável: o número quântico n. Fixos: ħω e ℓ (unidades do gráfico).</p>
+      <label><span>número quântico n</span><output id="hermNOut"></output><input id="hermN" type="range" min="0" max="12" step="1" value="0"></label>
+    </section>
+
+    <section class="view-controls" data-controls="classico">
+      <h3>Correspondência</h3>
+      <p class="equation">ρ<sub>cl</sub>(ξ) = 1/(π√(2n + 1 − ξ²))</p>
+      <p class="hint">Primeiro: a largura da média, com n = 20 fixo. Depois: n, com largura 1 ℓ fixa. Fixo sempre: ρ<sub>cl</sub> da partícula clássica de mesma energia.</p>
+      <label><span>número quântico n</span><output id="clasNOut"></output><input id="clasN" type="range" min="5" max="60" step="1" value="20"></label>
+      <label><span>largura da média móvel (ℓ)</span><output id="clasWOut"></output><input id="clasW" type="range" min="0" max="1.5" step="0.05" value="0"></label>
+      <div class="presets"><button type="button" id="clasShow">mostrar as curvas</button></div>
+    </section>
+
+    <section class="view-controls" data-controls="medica">
+      <h3>Vibração de uma ligação química</h3>
+      <p class="equation">ħω = hcν̃, ℓ = ħc/√(μc²·ħω), P₁/P₀ = e<sup>−ħω/k<sub>B</sub>T</sup></p>
+      <p class="hint">Variável: o número de onda ν̃. Depois: o par de átomos (μ) e a temperatura T.</p>
+      <label><span>número de onda ν̃ (cm⁻¹)</span><output id="medNuOut"></output><input id="medNu" type="range" min="800" max="4500" step="10" value="1700"></label>
+      <label class="state-select"><span>par de átomos</span><select id="medPair"><option value="C=O">C=O · μ = 12·16/28 u · d = 123 pm</option><option value="C-H">C–H · μ = 12·1/13 u · d = 109 pm</option><option value="O-H">O–H · μ = 16·1/17 u · d = 96 pm</option><option value="H2">H₂ · μ = 0,5 u · d = 74 pm</option></select></label>
+      <label><span>temperatura T (K)</span><output id="medTOut"></output><input id="medT" type="range" min="77" max="310" step="1" value="310"></label>
+      <div class="presets"><button type="button" data-med="1700,C=O,310">C=O a 37 °C (exemplo da nota)</button><button type="button" data-med="1655,C=O,310">amida I (1655 cm⁻¹)</button><button type="button" data-med="1740,C=O,310">éster (1740 cm⁻¹)</button><button type="button" data-med="4401,H2,310">H₂ (4401 cm⁻¹)</button><button type="button" id="medShow">mostrar população térmica</button></div>
+    </section>
+  </aside>
+
+  <section class="stage" aria-label="Visualizações">
+    <article class="canvas-panel">
+      <div class="chart-heading"><div><h2 id="mainTitle"></h2><p id="mainSubtitle"></p></div><div id="legend" class="legend"></div></div>
+      <canvas id="mainCanvas" role="img" aria-label="Visualização principal da estação"></canvas>
+      <p id="caption" class="caption"></p>
+    </article>
+  </section>
+
+  <aside class="analysis" aria-label="Análise quantitativa">
+    <section class="predict"><span>Preveja antes de mover</span><p id="prediction"></p></section>
+    <section><h2>Conta aberta</h2><div id="calculation" class="calculation"></div></section>
+    <section><h2>Leituras</h2><dl id="metrics"></dl></section>
+    <section><h2 id="conceptTitle">Ideia física</h2><p id="conceptText"></p></section>
+    <section><h2>Investigue</h2><ol id="prompts"></ol></section>
+  </aside>
+</section>
+
+<footer><span>Biocomplexity Lab · material didático</span><span>Instituto de Biociências de Botucatu — UNESP · Depto. de Biofísica e Farmacologia · Prof. Assoc. José L. Rybarczyk-Filho</span></footer>
+</main>
+<script src="physics.js?v=3ed70f4ee4"></script>
+<script src="app.js?v=e265f35438"></script>
+</body>
+</html>

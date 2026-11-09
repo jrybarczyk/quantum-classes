@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Aplicação interativa da aula 8: poço quadrado finito, solução gráfica das equações de quantização, autofunções com caudas evanescentes, limite do poço infinito e ponto quântico de CdSe.">
+<title>Aula 8 · Poço quadrado finito</title>
+<link rel="stylesheet" href="../_shared/dashboard.css?v=7716005a8c">
+<link rel="stylesheet" href="styles.css?v=c250cf4946">
+</head>
+<body>
+<a class="skip-link" href="#simulador">Ir para o simulador</a>
+<main id="simulador" class="app-shell">
+<header class="topbar">
+  <div class="brand"><b>BIOCOMPLEXITY</b><small>LAB · IB/UNESP</small></div>
+  <div>
+    <p class="eyebrow">Mecânica Quântica · Aula 8</p>
+    <h1>Poço quadrado finito</h1>
+    <p class="subtitle">Quantas energias cabem num poço de profundidade finita, e quanto a partícula vaza para fora dele?</p>
+  </div>
+  <div class="status" aria-live="polite"><span>Estação atual</span><strong id="statusTitle"></strong><small id="statusDetail"></small></div>
+</header>
+
+<nav class="tabs" role="tablist" aria-label="Estações da aula">
+  <button class="active" data-view="grafica" role="tab" aria-selected="true"><b>01</b><span>Solução gráfica</span></button>
+  <button data-view="autofuncoes" role="tab" aria-selected="false"><b>02</b><span>Autofunções e caudas</span></button>
+  <button data-view="limite" role="tab" aria-selected="false"><b>03</b><span>Limite do poço infinito</span></button>
+  <button data-view="cdse" role="tab" aria-selected="false"><b>04</b><span>Física médica · CdSe</span></button>
+</nav>
+
+<section class="workspace">
+  <aside class="controls" aria-label="Controles da estação">
+    <div class="panel-title"><h2>Parâmetros</h2><button id="resetBtn" type="button">Reiniciar</button></div>
+
+    <section class="view-controls active" data-controls="grafica">
+      <h3>Equações de quantização</h3>
+      <p class="equation">tan z = √(z₀²/z² − 1) (par)<br>−cot z = √(z₀²/z² − 1) (ímpar)</p>
+      <label><span>profundidade adimensional z₀ = a√(2mV₀)/ħ</span><output id="grafZ0Out"></output><input id="grafZ0" type="range" min="0.3" max="8" step="0.01" value="2"></label>
+      <p class="hint">Fixo: a forma do poço (largura 2a, fundo −V₀). Só z₀ muda, isto é, a combinação a²V₀m.</p>
+    </section>
+
+    <section class="view-controls" data-controls="autofuncoes">
+      <h3>Autofunção ψₙ(x)</h3>
+      <p class="equation">ψ₊: A cos(kx) em |x| ≤ a; A cos(ka) e^(−κ(|x|−a)) em |x| ≥ a<br>ψ₋: A sen(kx) em |x| ≤ a; A sgn(x) sen(ka) e^(−κ(|x|−a)) em |x| ≥ a</p>
+      <label><span>profundidade adimensional z₀</span><output id="autoZ0Out"></output><input id="autoZ0" type="range" min="0.3" max="8" step="0.01" value="2"></label>
+      <label><span>nível n</span><output id="autoNOut"></output><input id="autoN" type="range" min="1" max="6" step="1" value="1"></label>
+      <p class="hint">Fixo: a largura 2a. A região |x| &gt; a é classicamente proibida para qualquer estado ligado.</p>
+    </section>
+
+    <section class="view-controls" data-controls="limite">
+      <h3>Poço profundo</h3>
+      <p class="equation">zₙ² contra (nπ/2)²<br>Eₙ + V₀ → n²π²ħ²/(8ma²)</p>
+      <label><span>profundidade adimensional z₀</span><output id="limZ0Out"></output><input id="limZ0" type="range" min="2" max="40" step="0.1" value="8"></label>
+      <p class="hint">Fixo: a largura 2a. O poço infinito de comparação tem a mesma largura.</p>
+    </section>
+
+    <section class="view-controls" data-controls="cdse">
+      <h3>Ponto quântico de CdSe</h3>
+      <p class="equation">z₀ = a√(V₀/(ħ²/2m*)) · m* = 0,13 mₑ<br>ħ²/2mₑ = 0,0381 eV·nm²</p>
+      <label><span>diâmetro do cristal 2a (nm)</span><output id="cdseDOut"></output><input id="cdseD" type="range" min="2" max="8" step="0.1" value="4"></label>
+      <label><span>profundidade V₀ (eV)</span><output id="cdseV0Out"></output><input id="cdseV0" type="range" min="0.5" max="3" step="0.05" value="1"></label>
+      <p class="hint">Fixo: m* = 0,13 mₑ e E_gap = 1,74 eV. O buraco e a atração elétron–buraco são ignorados, como na nota.</p>
+      <fieldset class="ext"><legend>Extensão (fora da nota)</legend>
+        <label class="check"><input id="cdseHole" type="checkbox"><span>+ buraco confinado (m_h* = 0,45 mₑ)</span></label>
+        <label class="check"><input id="cdseSphere" type="checkbox"><span>esfera de raio R = a (ramo ímpar, estado l = 0)</span></label>
+      </fieldset>
+    </section>
+  </aside>
+
+  <section class="stage">
+    <article class="canvas-panel">
+      <div class="chart-heading"><div><h2 id="mainTitle"></h2><p id="mainSubtitle"></p></div><div id="legend" class="legend"></div></div>
+      <canvas id="mainCanvas" role="img" aria-label="Gráfico da estação"></canvas>
+      <p id="caption" class="caption"></p>
+    </article>
+  </section>
+
+  <aside class="analysis" aria-label="Análise da estação">
+    <section class="predict"><span>Preveja antes de mover</span><p id="prediction"></p></section>
+    <section><h2>Conta aberta</h2><div id="calculation" class="calculation"></div></section>
+    <section><h2>Leituras</h2><dl id="metrics"></dl></section>
+    <section id="conceptBox"><h2 id="conceptTitle">Ideia física</h2><p id="conceptText"></p></section>
+    <section><h2>Investigue</h2><ol id="prompts"></ol></section>
+  </aside>
+</section>
+
+<footer><span>Biocomplexity Lab · material didático</span><span>Instituto de Biociências de Botucatu — UNESP · Depto. de Biofísica e Farmacologia · Prof. Assoc. José L. Rybarczyk-Filho</span></footer>
+</main>
+<script src="physics.js?v=2b496b801a"></script>
+<script src="app.js?v=f4b8c3f39c"></script>
+</body>
+</html>

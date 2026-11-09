@@ -83,7 +83,8 @@
   function replicaSpacing(dk) { return 2 * Math.PI / dk; }
 
   // ---------- Born e interferência ----------
-  // Ψ=A(e^{ikx}+r·e^{−ikx+iφ}) ⇒ |Ψ|²/|A|² = 1+r²+2r·cos(2kx−φ). Aqui k=1.
+  // Ψ=A(e^{ikx}+r·e^{−ikx+iα}) ⇒ |Ψ|²/|A|² = 1+r²+2r·cos(2kx−α). Aqui k=1. (α: fase relativa; a nota
+  // e o roteiro usam α para não colidir com a amplitude φ(k) dos pacotes.)
   function interference(x, phase, ratio = 1) { return 1 + ratio * ratio + 2 * ratio * Math.cos(2 * x - phase); }
   // Densidade normalizada em um período 0≤x≤2π: ∫₀^{2π}|Ψ|²dx = 2π(1+r²).
   function bornDensity(x, phase, ratio = 1) { return interference(x, phase, ratio) / (2 * Math.PI * (1 + ratio * ratio)); }

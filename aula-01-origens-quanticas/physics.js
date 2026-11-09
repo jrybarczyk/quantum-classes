@@ -77,10 +77,13 @@
   // didático: energias cinéticas distribuídas uniformemente entre 0 e K_máx. Com V ≥ 0
   // todos os elétrons chegam (saturação ∝ intensidade); com V < 0 só chegam os que têm
   // K ≥ e|V|; a corrente zera em V = −V_s, que não depende da intensidade.
+  // Limiar (hν = Φ, ν = ν₀): há emissão com K_máx = 0, como em photoelectric(); a
+  // corrente de saturação (V ≥ 0) é a mesma relativeCurrent e qualquer V < 0 a anula.
   function photocurrent(voltage, frequency, workFunctionEV, intensityRelative = 1) {
     const result = photoelectric(frequency, workFunctionEV, intensityRelative);
-    if (!result.emitted || result.stoppingVoltage === 0) return 0;
+    if (!result.emitted) return 0;
     if (voltage >= 0) return result.relativeCurrent;
+    if (result.stoppingVoltage === 0) return 0;
     return result.relativeCurrent * Math.max(0, 1 + voltage / result.stoppingVoltage);
   }
 

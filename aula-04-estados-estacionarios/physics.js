@@ -1,6 +1,6 @@
 (function (root) {
   "use strict";
-  // Unidades: ħ = 1. No poço, L = 1 e E₁ = 1 (Eₙ = n²); no domínio periódico, Eₙ ∝ n².
+  // Unidades: ħ = 1. No poço, a = 1 e E₁ = 1 (Eₙ = n²); no domínio periódico, Eₙ ∝ n².
   // Na estação E > V_min, ħ = m = 1 e H = −½ d²/dx² + V(x).
 
   // ---------- estados estacionários ----------
@@ -20,7 +20,7 @@
     const re = a1 * s1 * Math.cos(f1) + a2 * s2 * Math.cos(f2), im = a1 * s1 * Math.sin(f1) + a2 * s2 * Math.sin(f2);
     return { re, im, density: re * re + im * im };
   }
-  // ⟨x⟩(t)/L = 1/2 + 2|c₁||c₂| x₁₂ cos(ω₂₁t − α), x₁₂ = ∫ψ₁ x ψ₂ du = −16/(9π²).
+  // ⟨x⟩(t)/a = 1/2 + 2|c₁||c₂| x₁₂ cos(ω₂₁t − α), x₁₂ = ∫ψ₁ x ψ₂ du = −16/(9π²).
   const x12 = -16 / (9 * Math.PI * Math.PI);
   function twoLevelMeanX(t, p2, alpha) {
     const omega = energyLevel(2) - energyLevel(1);
@@ -83,8 +83,8 @@
     return current;
   }
 
-  // ---------- parêntese: elementos de matriz na base do poço (L = 1, ħ = 1, energias em E₁) ----------
-  // ⟨m|x̂|n⟩ = −8mn/[π²(m²−n²)²] (m+n ímpar), L/2 na diagonal; ⟨m|d/dx|n⟩ = 4mn/(m²−n²) (m+n ímpar);
+  // ---------- parêntese: elementos de matriz na base do poço (a = 1, ħ = 1, energias em E₁) ----------
+  // ⟨m|x̂|n⟩ = −8mn/[π²(m²−n²)²] (m+n ímpar), a/2 na diagonal; ⟨m|d/dx|n⟩ = 4mn/(m²−n²) (m+n ímpar);
   // ⟨m|p̂|n⟩ = −i⟨m|d/dx|n⟩; ⟨m|Ĥ|n⟩ = n²δ_mn, com −iΓ na diagonal se V = −iΓ.
   function matrixElement(op, m, n, gamma = 0) {
     const odd = (m + n) % 2 === 1, d = odd ? 4 * m * n / (m * m - n * n) : 0;
@@ -110,10 +110,14 @@
     }
     return { re, im };
   }
-  // V = V_R − iΓ: a norma decai como e^{−2Γt/ħ}
+  // V = V_R − iΓ (nota 04, "E se V fosse complexo?"): d⟨Ψ|Ψ⟩/dt = −(2Γ/ħ)⟨Ψ|Ψ⟩, logo a norma
+  // decai como e^{−2Γt/ħ}; vida média τ = ħ/(2Γ); largura a meia altura da linha ħ/τ = 2Γ
+  // (Γ é a MEIA largura). Unidades: ħ = 1, Γ e energias em E₁, t e τ em ħ/E₁.
   const normDecay = (gamma, t) => Math.exp(-2 * gamma * t);
+  const lifetime = (gamma) => (gamma > 0 ? 1 / (2 * gamma) : Infinity);
+  const linewidthFWHM = (gamma) => 2 * gamma;
 
-  const api = { matrixElement, matrix, hermitianDefect, numericElement, normDecay, phase, boxWave, densityStationary, energyLevel, ringWave, ringDensity,
+  const api = { matrixElement, matrix, hermitianDefect, numericElement, normDecay, lifetime, linewidthFWHM, phase, boxWave, densityStationary, energyLevel, ringWave, ringDensity,
     twoLevel, twoLevelMeanX, twoLevelEnergy, measureEnergy, x12,
     potentials, makeGrid, normalize, trialGaussian, energyParts, potentialMinimum, relax };
   root.QuantumPhysics = api;

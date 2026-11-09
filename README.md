@@ -12,8 +12,11 @@ Site publicado: <https://jrybarczyk.github.io/quantum-classes/>
 | 03 | [Aula 3 · Normalização e incerteza](aula-03-normalizacao-corrente/) | Normalizacao, corrente de probabilidade e relacoes de incerteza. |
 | 04 | [Aula 4 · Estados estacionários](aula-04-estados-estacionarios/) | Separacao temporal, estados estacionarios, autovalores e operadores hermitianos. |
 | 05 | [Aula 5 · Poço infinito](aula-05-poco-infinito/) | Espectro, medida de posicao, truque de Fourier, revivencia e fisica medica. |
-| 06 | [Aula 6 · Expansão e medidas](aula-06-expansao-medidas/) | Completeza, expansao em autoestados e medida de energia. |
-| 07 | [Aula 7 · Degraus e barreiras](aula-07-degraus-barreiras/) | Degrau e barreira de potencial, reflexao, transmissao e tunelamento. |
+| 06 | [Aula 6 · Postulado de medida](aula-06-expansao-medidas/) | Postulado de medida: H, depois x, depois H; media e variancia; degenerescencia com projetor; paridade e espaco k da RM. |
+| 07 | [Aula 7 · Degraus e barreiras](aula-07-degraus-barreiras/) | Degrau e barreira de potencial, reflexao, tunelamento, alfa do Ra-223 pelo fator de Gamow e eco de ultrassom. |
+| 08 | [Aula 8 · Poço quadrado finito](aula-08-poco-finito/) | Poco finito: solucao grafica, caudas evanescentes, limite infinito e ponto quantico de CdSe. |
+| 09 | [Aula 9 · Potenciais delta de Dirac](aula-09-potenciais-delta/) | Delta de Dirac: salto de psi', estado ligado, espalhamento, polo e doador raso no HPGe. |
+| 10 | [Aula 10 · Oscilador harmônico](aula-10-oscilador-harmonico/) | Oscilador harmonico: quantizacao por tiro, autofuncoes de Hermite, limite classico e vibracao C=O em tecidos. |
 
 ## Como usar
 

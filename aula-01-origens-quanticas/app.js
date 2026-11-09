@@ -128,12 +128,12 @@
     setText("caption", axis === "absolute"
       ? "As duas curvas estão no mesmo eixo, normalizadas pelo máximo de 2T. A escala x = hν/kT esconde essa diferença: nela todas as temperaturas caem sobre uma só curva. Em escala absoluta, a frequência do pico é proporcional a T, a altura a T³ e a área (energia total por volume) a T⁴."
       : "A lei clássica acerta hν≪kT, mas atribui kT a um número ilimitado de modos de alta frequência. Planck torna essas excitações energeticamente improváveis.");
-    setText("prediction", "Ao dobrar T, a posição do pico cai pela metade. A energia total dobra, quadruplica ou cresce 16 vezes?");
+    setText("prediction", "Ao dobrar T, λmáx cai pela metade e νmáx dobra. A energia total dobra, quadruplica ou cresce 16 vezes?");
     setHtml("calculation", axis === "absolute"
       ? `ν<sub>máx</sub> = 2,821 kT/h<br>= 2,821 × (1,3806×10<sup>−23</sup>)(${temperature}) / (6,6261×10<sup>−34</sup>)<br><b>= ${sci(P.blackbodyPeakFrequency(temperature), 3)} Hz</b><small>ao dobrar T: ν<sub>máx</sub> × 2 · u<sub>ν,máx</sub> × 2³ = 8 · U/V × 2⁴ = 16</small>`
       : `λ<sub>máx</sub> = b/T<br>= 2,8978×10<sup>−3</sup> m·K / ${temperature} K<br><b>= ${fmt(body.lambdaPeak * 1e9, 1)} nm</b><small>U/V = aT⁴ = ${sci(body.energyDensity, 3)} J·m⁻³</small>`);
     metricRows([["Temperatura", `${temperature.toLocaleString("pt-BR")} K`], ["λmáx", `${fmt(body.lambdaPeak * 1e9, 1)} nm`], ["νmáx", `${sci(P.blackbodyPeakFrequency(temperature), 3)} Hz`], ["Energia/volume", `${sci(body.energyDensity, 3)} J/m³`], ["Fluxo emitido", `${sci(body.radiatedFlux, 3)} W/m²`]]);
-    setText("conceptTitle", "O problema era a energia por modo"); setText("conceptText", "A contagem clássica dos modos permanece. O passo novo é ⟨E⟩=hν/(e^{hν/kT}−1), em lugar de kT para toda frequência.");
+    setText("conceptTitle", "O problema era a energia por modo"); setHtml("conceptText", "A contagem clássica dos modos permanece. O passo novo é ⟨E⟩ = hν/(e<sup>hν/kT</sup> − 1), em lugar de kT para toda frequência.");
     promptRows(["Na escala absoluta, meça a razão entre as alturas dos picos de 2T e T e compare com 2³.", "Confirme numericamente a escala T⁴ com a energia por volume.", "Explique por que os máximos em ν e λ não são conversões diretas: compare c/νmáx com λmáx."]);
   }
 
@@ -244,8 +244,11 @@
     setText("mainTitle", "Comprimento de onda do elétron"); setText("mainSubtitle", "a escala atômica torna o cristal uma rede de difração");
     setText("caption", "A curva inclui a correção relativística. Na faixa baixa de tensão ela coincide visualmente com λ=h/√(2mₑeV); a diferença cresce com a energia.");
     setText("prediction", "Quadruplicar V reduz λ por 2 ou por 4 no regime não relativístico? Quando uma ordem de Bragg deixa de existir?");
-    setHtml("calculation", `K = e·V = ${grouped(voltage)} eV<br>λ ≈ 12,26/√V Å (V em volts)<br>= 12,26/√${voltage} Å<br><b>= ${fmt(wave.classicalWavelength * 1e10, 4)} Å</b><small>2d sen θ = nλ → ${angle === null ? "nλ&gt;2d: sem solução" : `θ=${fmt(angle, 3)}°`}</small>`);
-    metricRows([["Tensão V", `${grouped(voltage)} V`], ["Energia cinética K = e·V", `${grouped(voltage)} eV`], ["λ não relativístico", `${fmt(wave.classicalWavelength * 1e9, 5)} nm`], ["λ relativístico", `${fmt(wave.relativisticWavelength * 1e9, 5)} nm`], ["Correção relativa", `${fmt(100 * wave.relativeError, 4)}%`], ["Ângulo de Bragg", angle === null ? "não permitido" : `${fmt(angle, 3)}°`]]);
+    // A conta aberta mostra as duas formas, mas o λ em negrito é o relativístico, o mesmo
+    // usado no gráfico, no ângulo de Bragg e nas leituras (a 5 kV: 2,479°, e não 2,485°).
+    const pcEV = Math.sqrt(voltage ** 2 + 2 * voltage * P.constants.electronRestEnergyEV);
+    setHtml("calculation", `K = e·V = ${grouped(voltage)} eV<br>não relativística: λ ≈ 12,26/√V Å = 12,26/√${voltage} Å = ${fmt(wave.classicalWavelength * 1e10, 4)} Å<br>relativística: pc = √(K² + 2K·mₑc²) = √(${grouped(voltage)}² + 2·${grouped(voltage)}·510${"\u2009"}999) eV = ${grouped(pcEV)} eV<br>λ = hc/pc = 12${"\u2009"}398,4 eV·Å / ${grouped(pcEV)} eV <b>= ${fmt(wave.relativisticWavelength * 1e10, 4)} Å</b><small>2d sen θ = nλ, com o λ relativístico → ${angle === null ? "nλ&gt;2d: sem solução" : `θ=${fmt(angle, 3)}°`}</small>`);
+    metricRows([["Tensão V", `${grouped(voltage)} V`], ["Energia cinética K = e·V", `${grouped(voltage)} eV`], ["λ não relativístico", `${fmt(wave.classicalWavelength * 1e9, 5)} nm`], ["λ relativístico", `${fmt(wave.relativisticWavelength * 1e9, 5)} nm`], ["Correção relativa", `${fmt(100 * wave.relativeError, 4)}%`], ["Ângulo de Bragg (λ relativístico)", angle === null ? "não permitido" : `${fmt(angle, 3)}°`]]);
     setText("conceptTitle", "Momento também define uma escala ondulatória"); setText("conceptText", "A difração não significa uma órbita ondulada. Ela revela interferência entre amplitudes associadas a caminhos indistinguíveis.");
     promptRows(["Recupere aproximadamente 1,67 Å em 54 V.", "Teste a validade não relativística em 150 V e 5 kV.", "Varie d e n e identifique ordens proibidas."]);
   }
@@ -282,7 +285,7 @@
     setText("radiationThicknessOut", `${fmt(thickness, 1)} cm`);
     setText("statusTitle", "Fótons e matéria"); setText("statusDetail", `${result.material.name} · ${labels[result.dominant]}`);
     setText("mainTitle", "Aplicação: atenuação de raios X e γ"); setText("mainSubtitle", "os coeficientes macroscópicos revelam canais microscópicos quantizados");
-    setText("caption", "Seções de choque do NIST XCOM, interpoladas em log-log; os dois eixos são logarítmicos. Os saltos verticais são bordas de absorção: acima delas o fóton tem energia para arrancar elétrons de uma camada mais interna (K do chumbo: 88,0 keV). Pares exigem Eγ ≥ 2mₑc² = 1,022 MeV.");
+    setText("caption", "Seções de choque do NIST XCOM, interpoladas em log-log; os dois eixos são logarítmicos. Os saltos verticais são bordas de absorção: acima delas o fóton tem energia para arrancar elétrons de uma camada mais interna (K do chumbo: 88,0 keV). Pares exigem Eγ ≥ 2mₑc² = 1,022 MeV. A partilha foto · Compton · pares não fecha 100 %: o restante é espalhamento coerente (Rayleigh), sem transferência de energia ao meio. Limite: a lei exponencial vale para feixe estreito e detector colimado; num paciente o espalhado atinge o detector (buildup) e a energia depositada é dada por μ_en/ρ, não por μ/ρ.");
     setText("prediction", "Ao aumentar a energia, qual canal passa a dominar? O chumbo atenua mais logo abaixo ou logo acima de 88 keV?");
     setHtml("calculation", `μ = ρ(μ/ρ)<br>= ${fmt(result.material.density, 2)} × ${fmt(result.totalMass, 4)}<br><b>= ${fmt(result.linear, 4)} cm<sup>−1</sup></b><small>I/I<sub>0</sub> = e<sup>−μx</sup> = ${result.transmission < 1e-3 ? sci(result.transmission, 2) : fmt(result.transmission, 4)}</small>`);
     const share = key => `${fmt(100 * result[key] / result.totalMass, 0)}%`;

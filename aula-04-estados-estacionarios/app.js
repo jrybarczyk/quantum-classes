@@ -158,7 +158,7 @@
   function drawEigen() {
     const n = v("eigN"), L = v("eigL"), t = v("eigT"), E = (k) => P.energyLevel(k, L), top = E(6) * 1.12;
     set("eigNOut", n); set("eigLOut", fmt(L, 2)); set("eigTOut", fmt(t, 2));
-    const main = canvas("mainCanvas", .5), chart = axes(main, { x: 0, y: 0, w: main.w, h: main.h }, -.15, 1.95, 0, top, "posição x (L₀)", "energia (E₁ de L₀)", { xDigits: 2, yDigits: 0 });
+    const main = canvas("mainCanvas", .5), chart = axes(main, { x: 0, y: 0, w: main.w, h: main.h }, -.15, 1.95, 0, top, "posição x (a_ref)", "energia (E₁ de a_ref)", { xDigits: 2, yDigits: 0 });
     walls(chart, 0, L);
     for (let k = 1; k <= 6; k += 1) {
       const selected = k === n, base = E(k), amp = Math.min(top * .045, (E(Math.min(k + 1, 6)) - E(k)) * .4 || top * .04);
@@ -166,21 +166,21 @@
       line(chart, samples(0, L, 200, (x) => base + amp * P.boxWave(x / L, k) * Math.cos(E(k) * t)), selected ? C.green : C.gray, [], selected ? 2.4 : 1, selected ? 1 : .45);
       label(chart.ctx, `n=${k} · ${fmt(base, 1)}`, chart.X(L) + 8, chart.Y(base) + 4, selected ? C.green : C.gray, "left", selected ? "bold 11px Ubuntu, system-ui" : "10px Ubuntu, system-ui");
     }
-    const sec = canvas("secondaryCanvas", .34), w = axes(sec, { x: 0, y: 0, w: sec.w, h: sec.h }, -.15, 1.95, -2.2, 2.2, "posição x (L₀)", `ψ${n}(x)`, { xDigits: 2, ticks: 4 });
+    const sec = canvas("secondaryCanvas", .34), w = axes(sec, { x: 0, y: 0, w: sec.w, h: sec.h }, -.15, 1.95, -2.2, 2.2, "posição x (a_ref)", `ψ${n}(x)`, { xDigits: 2, ticks: 4 });
     walls(w, 0, L);
     area(w, samples(0, L, 300, (x) => P.boxWave(x / L, n) ** 2 / L), "rgba(69,123,157,.18)");
     line(w, samples(0, L, 300, (x) => P.boxWave(x / L, n) / Math.sqrt(L) * Math.cos(E(n) * t)), C.green, [], 2.6);
     line(w, samples(0, L, 300, (x) => P.boxWave(x / L, n) / Math.sqrt(L)), C.green, [3, 4], 1.2, .5);
     line(w, samples(0, L, 300, (x) => -P.boxWave(x / L, n) / Math.sqrt(L)), C.green, [3, 4], 1.2, .5);
-    texts({ status: "Autovalor", detail: `n = ${n} · L = ${fmt(L, 2)} L₀`, title: "Autovalores permitidos no poço", subtitle: "as paredes selecionam as energias Eₙ ∝ n²/L²",
+    texts({ status: "Autovalor", detail: `n = ${n} · a = ${fmt(L, 2)} a_ref`, title: "Autovalores permitidos no poço", subtitle: "as paredes selecionam as energias Eₙ ∝ n²/a²",
       caption: "Cada nível traz sua autofunção desenhada na própria energia, oscilando com sua frequência Eₙ/ℏ: os níveis de cima vibram mais depressa. Só cabem ondas que zeram nas duas paredes.",
-      secondaryTitle: `Autofunção do nível n = ${n}`, secondarySubtitle: "ψ(0) = ψ(L) = 0 · envoltória tracejada",
+      secondaryTitle: `Autofunção do nível n = ${n}`, secondarySubtitle: "ψ(0) = ψ(a) = 0 · envoltória tracejada",
       secondaryCaption: "A onda estacionária respira entre as envoltórias ±ψₙ(x); a densidade (azul claro) não se move. n − 1 nós internos.",
-      prediction: "Ao dobrar L, as energias caem por 2 ou por 4? O espaçamento entre níveis cresce ou diminui com n?",
-      calculation: `Eₙ = n²π²ℏ²/(2mL²)<br><b>E${n} = ${fmt(E(n), 3)} E₁(L₀)</b><br><small>E${n + 1 > 6 ? 6 : n + 1} − E${n + 1 > 6 ? 5 : n} = ${fmt(n < 6 ? E(n + 1) - E(n) : E(6) - E(5), 3)}</small>`,
-      metrics: [["n", n], ["L/L₀", fmt(L, 2)], ["Eₙ/E₁(L₀)", fmt(E(n), 3)], ["nós internos", n - 1]],
+      prediction: "Ao dobrar a, as energias caem por 2 ou por 4? O espaçamento entre níveis cresce ou diminui com n?",
+      calculation: `Eₙ = n²π²ℏ²/(2ma²)<br><b>E${n} = ${fmt(E(n), 3)} E₁(a_ref)</b><br><small>E${n + 1 > 6 ? 6 : n + 1} − E${n + 1 > 6 ? 5 : n} = ${fmt(n < 6 ? E(n + 1) - E(n) : E(6) - E(5), 3)}</small>`,
+      metrics: [["n", n], ["a/a_ref", fmt(L, 2)], ["Eₙ/E₁(a_ref)", fmt(E(n), 3)], ["nós internos", n - 1]],
       concept: "Hψ = Eψ tem solução para qualquer E, mas só alguns valores satisfazem também as condições de contorno. São esses os autovalores: a quantização vem do contorno, não da equação sozinha.",
-      prompts: ["Dobre L e confira o fator nas energias.", "Compare E₂ − E₁ com E₃ − E₂.", "Relacione n ao número de nós e à rapidez da oscilação."],
+      prompts: ["Dobre a e confira o fator nas energias.", "Compare E₂ − E₁ com E₃ − E₂.", "Relacione n ao número de nós e à rapidez da oscilação."],
       legend: [[C.green, "nível selecionado"], [C.gray, "demais níveis"], [C.blue, "|ψₙ|²"]] });
   }
 
@@ -188,16 +188,16 @@
   function drawTwoLevel() {
     const p2 = v("twoP"), alpha = v("twoA"), t = v("twoT"), s = P.twoLevelEnergy(p2), meanX = P.twoLevelMeanX(t, p2, alpha);
     set("twoPOut", fmt(p2, 2)); set("twoAOut", `${fmt(alpha / Math.PI, 2)}π`); set("twoTOut", fmt(t, 2));
-    const main = canvas("mainCanvas", .5), chart = axes(main, { x: 0, y: 0, w: main.w, h: main.h }, -.12, 1.12, -2.2, 4.4, "posição u = x/L", "|Ψ|² e Re Ψ", { xDigits: 1 });
+    const main = canvas("mainCanvas", .5), chart = axes(main, { x: 0, y: 0, w: main.w, h: main.h }, -.12, 1.12, -2.2, 4.4, "posição u = x/a", "|Ψ|² e Re Ψ", { xDigits: 1 });
     walls(chart, 0, 1);
     const rho = samples(0, 1, 360, (u) => P.twoLevel(u, t, p2, alpha).density);
     area(chart, rho, "rgba(97,155,96,.26)"); line(chart, rho, C.green, [], 2.8);
     line(chart, samples(0, 1, 360, (u) => P.twoLevel(u, t, p2, alpha).re), C.gold, [6, 4], 1.6);
     const c = chart.ctx; c.setLineDash([4, 4]); c.strokeStyle = C.red; c.lineWidth = 1.6; c.beginPath(); c.moveTo(chart.X(meanX), chart.top); c.lineTo(chart.X(meanX), chart.bottom); c.stroke(); c.setLineDash([]);
-    dot(c, chart.X(meanX), chart.Y(4.15), C.red, 6); label(c, `⟨x⟩ = ${fmt(meanX, 3)} L`, chart.X(meanX) + 8, chart.Y(4.15) + 4, C.red, "left", "bold 11px Ubuntu, system-ui");
+    dot(c, chart.X(meanX), chart.Y(4.15), C.red, 6); label(c, `⟨x⟩ = ${fmt(meanX, 3)} a`, chart.X(meanX) + 8, chart.Y(4.15) + 4, C.red, "left", "bold 11px Ubuntu, system-ui");
     // painel secundário: ⟨x⟩(t), fasores e histograma de medidas
     const sec = canvas("secondaryCanvas", .34), ctx = sec.ctx, wA = sec.w * .5, wB = sec.w * .22;
-    const tr = axes(sec, { x: 0, y: 0, w: wA, h: sec.h }, 0, 6.28, .25, .75, "t (ℏ/E₁)", "⟨x⟩/L", { ticks: 4, yDigits: 2 });
+    const tr = axes(sec, { x: 0, y: 0, w: wA, h: sec.h }, 0, 6.28, .25, .75, "t (ℏ/E₁)", "⟨x⟩/a", { ticks: 4, yDigits: 2 });
     line(tr, samples(0, 6.28, 400, (q) => P.twoLevelMeanX(q, p2, alpha)), C.red, [], 1.4, .3);
     line(tr, samples(0, Math.max(t, .001), 300, (q) => P.twoLevelMeanX(q, p2, alpha)), C.red, [], 2.6);
     dot(ctx, tr.X(t), tr.Y(meanX), C.red, 5);
@@ -223,7 +223,7 @@
       secondaryCaption: "Os dois fasores giram com velocidades E₁/ℏ e E₂/ℏ; ⟨x⟩ depende só do ângulo entre eles. Já uma medida de energia dá E₁ ou E₂, com frequências que tendem a |c₁|² e |c₂|² (linhas tracejadas) — e isso não muda com t nem com α.",
       prediction: "Se α mudar, as probabilidades de E₁ e E₂ mudam? E o movimento de ⟨x⟩? Com |c₂|² = 0, a densidade balança?",
       calculation: `P(E₁) = |c₁|² = ${fmt(s.p1, 3)} · P(E₂) = ${fmt(s.p2, 3)}<br>⟨H⟩ = ${fmt(s.p1, 3)}·1 + ${fmt(s.p2, 3)}·4 = ${fmt(s.mean, 3)} E₁<br><b>ΔE = √(|c₁|²|c₂|²)·|E₂ − E₁| = ${fmt(s.spread, 3)} E₁</b><small>com 1/3 e 2/3: ΔE = (√2/3)·3E₁ = ${fmt(Math.SQRT2, 3)} E₁</small>`,
-      metrics: [["⟨H⟩", `${fmt(s.mean, 3)} E₁`], ["ΔE", `${fmt(s.spread, 3)} E₁`], ["amplitude de ⟨x⟩", `${fmt(amp, 3)} L`], ["período de Bohr", `${fmt(s.period, 3)} ℏ/E₁`], ["medidas E₁ · E₂", total ? `${state.counts[1]} · ${state.counts[2]}` : "—"]],
+      metrics: [["⟨H⟩", `${fmt(s.mean, 3)} E₁`], ["ΔE", `${fmt(s.spread, 3)} E₁`], ["amplitude de ⟨x⟩", `${fmt(amp, 3)} a`], ["período de Bohr", `${fmt(s.period, 3)} ℏ/E₁`], ["medidas E₁ · E₂", total ? `${state.counts[1]} · ${state.counts[2]}` : "—"]],
       concept: "Uma superposição de energias diferentes não é estacionária: o termo cruzado oscila com ω₂₁. Mas a distribuição de energia, |c₁|² e |c₂|², é fixa. A fase α não muda essas probabilidades; só desloca no tempo a oscilação de outros observáveis, como ⟨x⟩.",
       prompts: ["Use o preset do exercício (1/3 e 2/3): confira ⟨H⟩ e ΔE com a resposta guiada da nota.", "Meça 1000 vezes: as frações se aproximam de 1/3 e 2/3? Mude α e meça de novo.", "Leve |c₂|² a 0 e a 1: o que acontece com o balanço? Em que peso a amplitude de ⟨x⟩ é máxima?"],
       legend: [[C.green, "|Ψ|²"], [C.gold, "Re Ψ", true], [C.red, "⟨x⟩"], [C.blue, "c₁ / E₁"]] });
@@ -279,11 +279,11 @@
 
   // ================================================================ 06 · hermitiano (parêntese da nota)
   const OPS = {
-    x: { name: "x̂", unit: "L", formula: "⟨m|x̂|n⟩ = ∫ψₘ x ψₙ dx" },
-    d: { name: "d/dx", unit: "1/L", formula: "⟨m|d/dx|n⟩ = ∫ψₘ ψₙ′ dx" },
-    p: { name: "p̂ = −iℏ d/dx", unit: "ℏ/L", formula: "⟨m|p̂|n⟩ = −iℏ∫ψₘ ψₙ′ dx" },
+    x: { name: "x̂", unit: "a", formula: "⟨m|x̂|n⟩ = ∫ψₘ x ψₙ dx" },
+    d: { name: "d/dx", unit: "1/a", formula: "⟨m|d/dx|n⟩ = ∫ψₘ ψₙ′ dx" },
+    p: { name: "p̂ = −iℏ d/dx", unit: "ℏ/a", formula: "⟨m|p̂|n⟩ = −iℏ∫ψₘ ψₙ′ dx" },
     H: { name: "Ĥ", unit: "E₁", formula: "⟨m|Ĥ|n⟩ = Eₙ⟨m|n⟩ = Eₙ δₘₙ" },
-    Hc: { name: "Ĥ com V = −iΓ", unit: "E₁", formula: "⟨m|Ĥ|n⟩ = (Eₙ − iΓ) δₘₙ" },
+    Hc: { name: "Ĥ com V = V_R − iΓ", unit: "E₁", formula: "⟨m|Ĥ|n⟩ = (Eₙ − iΓ) δₘₙ (V_R = 0)" },
   };
   const fmtC = (q, d = 3) => { const r = Math.abs(q.re) < 5e-4 ? "" : fmt(q.re, d), i = Math.abs(q.im) < 5e-4 ? "" : `${q.im < 0 ? "−" : r ? "+" : ""}${fmt(Math.abs(q.im), d)}i`; return r || i ? `${r}${r && i ? " " : ""}${i}` : "0"; };
   function drawHermitian() {
@@ -322,7 +322,7 @@
     label(ctx, "cheio: (m,n) · tracejado: (n,m)", px, oy + cell * size - 4, C.gray, "left", "10px Ubuntu, system-ui");
     // secundário: |Ψ|² de ψ₁ com V = −iΓ e a norma no tempo
     const norm = P.normDecay(gamma, t), sec = canvas("secondaryCanvas", .34), sctx = sec.ctx, wA = sec.w * .52;
-    const dch = axes(sec, { x: 0, y: 0, w: wA, h: sec.h }, -.08, 1.08, 0, 2.3, "posição x/L", "|Ψ₁(x,t)|²", { ticks: 4, xDigits: 1 });
+    const dch = axes(sec, { x: 0, y: 0, w: wA, h: sec.h }, -.08, 1.08, 0, 2.3, "posição x/a", "|Ψ₁(x,t)|²", { ticks: 4, xDigits: 1 });
     walls(dch, 0, 1);
     line(dch, samples(0, 1, 200, (u) => P.densityStationary(u, 1)), C.gray, [4, 4], 1.4);
     area(dch, samples(0, 1, 200, (u) => P.densityStationary(u, 1) * norm), "rgba(97,155,96,.3)"); line(dch, samples(0, 1, 200, (u) => P.densityStationary(u, 1) * norm), C.green, [], 2.4);
@@ -330,17 +330,17 @@
     line(nch, [{ x: 0, y: 1 }, { x: 6.28, y: 1 }], C.gray, [4, 4], 1.2);
     line(nch, samples(0, 6.28, 200, (s) => P.normDecay(gamma, s)), C.red, [], 2.4);
     dot(sctx, nch.X(t), nch.Y(norm), C.red, 5);
-    label(sctx, gamma ? `e^(−2Γt/ℏ), meia-vida ${fmt(Math.LN2 / (2 * gamma), 2)} ℏ/E₁` : "V real: norma constante", nch.right - 4, nch.top + 14, C.red, "right", "bold 11px Ubuntu, system-ui");
+    label(sctx, gamma ? `e^(−2Γt/ℏ): τ = ℏ/2Γ = ${fmt(P.lifetime(gamma), 2)} ℏ/E₁` : "V real: norma constante", nch.right - 4, nch.top + 14, C.red, "right", "bold 11px Ubuntu, system-ui");
     texts({ status: "Hermitiano", detail: `${op.name} · ${verdict}`, title: `${op.name} na base {|n⟩} do poço: é hermitiano?`, subtitle: op.formula,
       caption: "Cada célula é Qₘₙ = ⟨m|Q̂|n⟩ para os cinco primeiros autoestados do poço. Azul/vermelho: parte real positiva/negativa; violeta/laranja: parte imaginária positiva/negativa. Um operador hermitiano tem matriz igual à transposta conjugada: elementos simétricos em relação à diagonal são conjugados e a diagonal é real.",
-      secondaryTitle: "Hermiticidade e conservação da probabilidade", secondarySubtitle: gamma ? `V = −iΓ, Γ = ${fmt(gamma, 2)} E₁: ⟨Ψ|Ψ⟩ decai` : "Ĥ hermitiano: ⟨Ψ|Ψ⟩ não muda no tempo",
-      secondaryCaption: "Com V real, Ĥ é hermitiano e a norma é conservada (aula 3). Com V = V_R − iΓ, Ĥ ≠ Ĥ† e a norma cai como e^(−2Γt/ℏ): a partícula some do canal descrito — é como se modela absorção, por exemplo de nêutrons num núcleo.",
+      secondaryTitle: "Hermiticidade e conservação da probabilidade", secondarySubtitle: gamma ? `V = V_R − iΓ, Γ = ${fmt(gamma, 2)} E₁: ⟨Ψ|Ψ⟩ = e^(−2Γt/ℏ), τ = ℏ/2Γ, largura da linha ℏ/τ = 2Γ` : "Ĥ hermitiano: ⟨Ψ|Ψ⟩ não muda no tempo",
+      secondaryCaption: "Com V real, Ĥ é hermitiano e a norma é conservada (aula 3). Com V = V_R − iΓ, Ĥ ≠ Ĥ† e a norma cai como e^(−2Γt/ℏ), com vida média τ = ℏ/2Γ: a partícula some do canal descrito — é como se modela absorção ou decaimento. A linha espectral desse nível tem largura a meia altura ℏ/τ = 2Γ: Γ é a meia largura (Tc-99m, nota da Aula 4).",
       prediction: "A matriz de d/dx será simétrica? E a de p̂ = −iℏ d/dx: o que o fator −i muda? Em x̂, o que você espera para ⟨1|x̂|3⟩?",
-      calculation: `${op.formula}<br><b>⟨${m}|Q̂|${n}⟩ = ${fmtC(q)} ${op.unit} · ⟨${n}|Q̂|${m}⟩* = ${fmtC(conj)} ${op.unit}</b><small>exemplo da nota: ⟨1|p̂|2⟩ = −iℏ(4π/L²)∫sen(πx/L)cos(2πx/L)dx = 8iℏ/(3L) = ${fmt(8 / 3, 3)}i ℏ/L</small><small>(d/dx)† = −d/dx pela integração por partes; p̂† = (−iℏ)*(−d/dx) = p̂</small>`,
-      metrics: [["operador", op.name], [`⟨${m}|Q̂|${n}⟩`, `${fmtC(q)} ${op.unit}`], [`⟨${n}|Q̂|${m}⟩*`, `${fmtC(conj)} ${op.unit}`], ["máx |Qₘₙ − Qₙₘ*|", fmt(defect, 4)], ["classificação", verdict], ["⟨Ψ|Ψ⟩ em t", fmt(norm, 3)]],
+      calculation: `${op.formula}<br><b>⟨${m}|Q̂|${n}⟩ = ${fmtC(q)} ${op.unit} · ⟨${n}|Q̂|${m}⟩* = ${fmtC(conj)} ${op.unit}</b><small>exemplo da nota: ⟨1|p̂|2⟩ = −iℏ(4π/a²)∫sen(πx/a)cos(2πx/a)dx = 8iℏ/(3a) = ${fmt(8 / 3, 3)}i ℏ/a</small><small>(d/dx)† = −d/dx pela integração por partes; p̂† = (−iℏ)*(−d/dx) = p̂</small>${gamma ? `<small>V = V_R − iΓ: ⟨Ψ|Ψ⟩ = e^(−2Γt/ℏ) = e^(−2·${fmt(gamma, 2)}·${fmt(t, 2)}) = ${fmt(norm, 3)}; τ = ℏ/2Γ = ${fmt(P.lifetime(gamma), 2)} ℏ/E₁; largura a meia altura ℏ/τ = 2Γ = ${fmt(P.linewidthFWHM(gamma), 2)} E₁</small>` : ""}`,
+      metrics: [["operador", op.name], [`⟨${m}|Q̂|${n}⟩`, `${fmtC(q)} ${op.unit}`], [`⟨${n}|Q̂|${m}⟩*`, `${fmtC(conj)} ${op.unit}`], ["máx |Qₘₙ − Qₙₘ*|", fmt(defect, 4)], ["classificação", verdict], gamma ? ["⟨Ψ|Ψ⟩ em t · τ · ℏ/τ = 2Γ", `${fmt(norm, 3)} · ${fmt(P.lifetime(gamma), 2)} ℏ/E₁ · ${fmt(P.linewidthFWHM(gamma), 2)} E₁`] : ["⟨Ψ|Ψ⟩ em t", fmt(norm, 3)]],
       conceptTitle: "Parêntese da nota",
       concept: "O adjunto é definido por ⟨φ|Q̂ψ⟩ = ⟨Q̂†φ|ψ⟩, e hermitiano é Q̂† = Q̂. Numa base ortonormal isso vira Qₘₙ = Qₙₘ*. A derivada troca de sinal na integração por partes (anti-hermitiana); o −i de p̂ corrige o sinal. Operadores hermitianos têm valores esperados e autovalores reais, autofunções ortogonais e, no caso de Ĥ, conservam a probabilidade — por isso representam as grandezas observáveis.",
-      prompts: ["Escolha d/dx e compare ⟨1|d/dx|2⟩ com ⟨2|d/dx|1⟩. Agora p̂: o que mudou e por quê?", "Em x̂, confira ⟨1|x̂|1⟩ = L/2, ⟨1|x̂|2⟩ = −0,180 L (a amplitude da estação 4) e ⟨1|x̂|3⟩ = 0: explique pela paridade.", "Em Ĥ, por que a matriz é diagonal? O que isso diz sobre a base?", "Ligue V = −iΓ: o que aparece na diagonal? Em que instante ⟨Ψ|Ψ⟩ cai à metade? Confira com ln 2/(2Γ)."],
+      prompts: ["Escolha d/dx e compare ⟨1|d/dx|2⟩ com ⟨2|d/dx|1⟩. Agora p̂: o que mudou e por quê?", "Em x̂, confira ⟨1|x̂|1⟩ = a/2, ⟨1|x̂|2⟩ = −0,180 a (a amplitude da estação 4) e ⟨1|x̂|3⟩ = 0: explique pela paridade.", "Em Ĥ, por que a matriz é diagonal? O que isso diz sobre a base?", "Ligue V = V_R − iΓ: o que aparece na diagonal? Em que instante ⟨Ψ|Ψ⟩ cai a 1/e (τ = ℏ/2Γ) e à metade (ln 2 · τ)? Por que a largura da linha é 2Γ e não Γ?"],
       legend: [[C.blue, "Re > 0"], [C.red, "Re < 0"], [C.violet, "Im > 0"], [C.gold, "Im < 0"], [C.green, "|Ψ₁|² · ⟨Ψ|Ψ⟩"]] });
   }
 

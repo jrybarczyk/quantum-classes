@@ -20,7 +20,7 @@
 
   const fmt = (value, digits = 3) => Number(value).toLocaleString("pt-BR", { maximumFractionDigits: digits, minimumFractionDigits: digits });
   const active = id => $(`${view}-${id}`) || document.querySelector(`[data-controls="${view}"] #${id}`) || $(id);
-  const value = id => Number(active(id).value);
+  const value = id => { const input = active(id); return input ? Number(input.value) : 0; };
   const samples = (from, to, amount, fn) => Array.from({ length: amount }, (_, i) => {
     const x = from + i * (to - from) / (amount - 1);
     return { x, y: fn(x) };
@@ -45,7 +45,7 @@
       superposition: [["segundo nível nᴮ", 2, 6, 1, 2], ["peso |cᴮ|²", 0, 1, .01, .5], ["tempo reduzido τ", 0, TAU, .01, 0]]
     },
     aula06: {
-      expansion: [["centro u₀", .2, .8, .01, .5], ["largura do estado", .08, .35, .01, .18], ["fase inicial φ", 0, TAU, .01, 0]],
+      expansion: [["centro u₀", .2, .8, .01, .5], ["largura do estado", .08, .35, .01, .18]],
       measurement: [["centro u₀", .2, .8, .01, .5], ["largura do estado", .08, .35, .01, .18], ["escala dos autovalores", .5, 2, .05, 1]],
       evolution: [["centro u₀", .2, .8, .01, .5], ["largura do estado", .08, .35, .01, .18], ["tempo reduzido τ", 0, TAU, .01, 0]]
     }
@@ -343,27 +343,28 @@
     const projection = P.projectState(basisKind, dominant, mixing, modeCount);
     const probabilities = projection.normalizedProbabilities;
     const stateName = { gaussian: "gaussiano localizado", triangular: "triangular", flat: "constante" }[basisKind];
-    const values = Array.from({ length: modeCount }, (_, i) => (i + 1) * (view === "measurement" ? third : 1));
+    // Autovalores: na vista de medida, aₙ = n·(escala); nas demais, Eₙ/E₁ = n² (nota 06, §Expansão).
+    const values = Array.from({ length: modeCount }, (_, i) => view === "measurement" ? (i + 1) * third : (i + 1) ** 2);
     const mean = P.expectation(values, probabilities), variance = P.variance(values, probabilities);
     if (view === "expansion") {
-      const amplitudes = projection.coefficients.map((coefficient, i) => coefficient * Math.cos(third * (i + 1)));
-      const chart = axes(main, .5, modeCount + .5, -1, 1, "estado de base |n⟩", "Re(cₙ)"); barsSigned(chart, amplitudes, C.green, C.red);
+      const amplitudes = projection.coefficients; // cₙ = ∫ψₙψ du são reais (ψ real): barras com sinal
+      const chart = axes(main, .5, modeCount + .5, -1, 1, "estado de base |n⟩", "cₙ (reais, com sinal)"); barsSigned(chart, amplitudes, C.green, C.red);
       const reconstruction = samples(0, 1, 320, u => ({ x: u, y: projection.coefficients.reduce((sum, coefficient, i) => sum + coefficient * Math.sqrt(2) * Math.sin((i + 1) * Math.PI * u), 0) }));
       const chart2 = axes(secondary, 0, 1, -1.6, 1.6, "u=x/L", "ψ(u)");
       line(chart2, samples(0, 1, 320, u => ({ x: u, y: projection.wave(u) })), C.gold, [5, 4]);
       line(chart2, reconstruction, C.blue);
-      renderText({ title: "Projeção de um estado concreto", subtitle: `estado ${stateName} expandido na base do poço`, caption: "Cada barra é calculada numericamente pela integral cₙ=∫ψₙ(u)ψ(u)du.", secondaryTitle: "Coeficientes e reconstrução", secondarySubtitle: `N=${modeCount} termos · norma capturada ${fmt(projection.capturedNorm)}`, secondaryCaption: "Barras: |cₙ|². Linha azul: reconstrução Σcₙψₙ(u) no mesmo painel; aumente N para reduzir o erro.", prediction: "Que simetria do estado faz desaparecer parte dos coeficientes?", calculation: `cₙ=∫₀¹ψₙ(u)ψ(u)du<br><b>Σₙ₌₁ⁿ|cₙ|² = ${fmt(projection.capturedNorm)}</b>`, metrics: [["estado preparado", stateName], ["termos N", fmt(modeCount, 0)], ["norma capturada", fmt(projection.capturedNorm)], ["maior peso", fmt(Math.max(...probabilities))]], concept: "Expandir deixou de ser uma distribuição arbitrária: os coeficientes agora são projeções de uma função normalizada sobre autofunções conhecidas.", prompts: ["Compare estado constante e triangular.", "Desloque o centro e observe a paridade.", "Aumente N e avalie a reconstrução."], legend: [[C.green, "Re(cₙ)>0"], [C.red, "Re(cₙ)<0"], [C.blue, "reconstrução"]] });
+      renderText({ title: "Projeção de um estado concreto", subtitle: `estado ${stateName} expandido na base do poço`, caption: "Cada barra é calculada numericamente pela integral cₙ=∫ψₙ(u)ψ(u)du.", secondaryTitle: "Coeficientes e reconstrução", secondarySubtitle: `N=${modeCount} termos · norma capturada ${fmt(projection.capturedNorm)}`, secondaryCaption: "Barras: cₙ reais, com sinal (|cₙ|² está na estação 3). Linha azul: reconstrução Σcₙψₙ(u); aumente N para reduzir o erro.", prediction: "Que simetria do estado faz desaparecer parte dos coeficientes?", calculation: `cₙ=∫₀¹ψₙ(u)ψ(u)du<br><b>Σₙ₌₁ⁿ|cₙ|² = ${fmt(projection.capturedNorm)}</b>`, metrics: [["estado preparado", stateName], ["termos N", fmt(modeCount, 0)], ["norma capturada", fmt(projection.capturedNorm)], ["maior peso", fmt(Math.max(...probabilities))]], concept: "Expandir deixou de ser uma distribuição arbitrária: os coeficientes agora são projeções de uma função normalizada sobre autofunções conhecidas.", prompts: ["Compare estado constante e triangular.", "Desloque o centro e observe a paridade.", "Aumente N e avalie a reconstrução."], legend: [[C.green, "cₙ>0"], [C.red, "cₙ<0"], [C.blue, "reconstrução"]] });
     } else if (view === "measurement") {
       const total = counts.reduce((x, y) => x + y, 0);
       const observed = counts.map(count => total ? count / total : 0);
       const chart = axes(main, .5, modeCount + .5, 0, Math.max(.65, ...probabilities, ...observed) * 1.12, "resultado aₙ", "frequência"); bars(chart, probabilities, C.gold, true); if (total) bars(chart, observed, C.green);
       const chart2 = axes(secondary, .5, modeCount + .5, 0, Math.max(...values) * 1.08, "resultado n", "autovalor aₙ"); bars(chart2, values, C.blue);
-      renderText({ title: "Medidas em um ensemble", subtitle: `${stateName} · Born × frequências observadas · N=${total}`, caption: "Cada sorteio usa uma nova cópia; a distribuição prevista vem das projeções calculadas.", secondaryTitle: "Espectro do observável A", secondarySubtitle: "resultados possíveis, não uma curva contínua", secondaryCaption: "A simulação condiciona a medida aos seis níveis exibidos; a norma capturada informa a truncagem.", prediction: "Uma única medida retorna ⟨A⟩ ou um dos autovalores?", calculation: `P(aₙ|n≤6)=|cₙ|²/Σ₁⁶|c|²<br><b>⟨A⟩=${fmt(mean)} · ΔA=${fmt(Math.sqrt(variance))}</b>`, metrics: [["ensemble N", fmt(total, 0)], ["último resultado", window.lastMeasurement || "—"], ["norma capturada", fmt(projection.capturedNorm)]], concept: "A média descreve o ensemble; cada realização individual produz um autovalor permitido.", prompts: ["Meça uma cópia.", "Compare N=100 e N=1000.", "Troque o estado e observe as frequências."], legend: [[C.gold, "previsão projetada"], [C.green, "frequência observada"]] });
+      renderText({ title: "Medidas em um ensemble", subtitle: `${stateName} · Born × frequências observadas · N=${total}`, caption: "Cada sorteio usa uma nova cópia; a distribuição prevista vem das projeções calculadas.", secondaryTitle: "Espectro do observável A", secondarySubtitle: "resultados possíveis, não uma curva contínua", secondaryCaption: `A simulação condiciona a medida aos ${modeCount} níveis exibidos; a norma capturada informa a truncagem.`, prediction: "Uma única medida retorna ⟨A⟩ ou um dos autovalores?", calculation: `P(aₙ | n≤${modeCount}) = |cₙ|²/Σ<sub>n≤${modeCount}</sub>|cₙ|²<br><b>⟨A⟩=${fmt(mean)} · σ<sub>A</sub>=${fmt(Math.sqrt(variance))}</b>`, metrics: [["ensemble N", fmt(total, 0)], ["último resultado", window.lastMeasurement || "—"], ["norma capturada", fmt(projection.capturedNorm)]], concept: "A média descreve o ensemble; cada realização individual produz um autovalor permitido.", prompts: ["Meça uma cópia.", "Compare N=100 e N=1000.", "Troque o estado e observe as frequências."], legend: [[C.gold, "previsão projetada"], [C.green, "frequência observada"]] });
     } else {
       const phases = probabilities.map((_, i) => -((i + 1) ** 2) * third);
       drawPhasors(main, probabilities, phases);
       const chart2 = axes(secondary, .5, modeCount + .5, 0, Math.max(.65, ...probabilities) * 1.15, "energia Eₙ", "P(Eₙ)"); bars(chart2, probabilities, C.gold);
-      renderText({ title: "Fases da expansão projetada", subtitle: `${stateName} · cada cₙ gira com Eₙ/ℏ`, caption: "Comprimentos dos vetores vêm das projeções; seus ângulos evoluem em ritmos n².", secondaryTitle: "Probabilidades de energia", secondarySubtitle: "invariantes durante a evolução unitária", secondaryCaption: "As barras não mudam com o tempo, embora as fases relativas mudem.", prediction: "A evolução livre altera os pesos de energia ou apenas suas fases?", calculation: `cₙ(t)=cₙ(0)e⁻ⁱᴱⁿᵗ/ℏ<br><b>⟨H⟩₆=${fmt(mean)} · norma capturada=${fmt(projection.capturedNorm)}</b>`, metrics: [["tempo τ", fmt(third, 2)], ["⟨H⟩ na truncagem", fmt(mean)], ["norma capturada", fmt(projection.capturedNorm)]], concept: "A evolução unitária preserva os módulos das projeções e altera apenas suas fases relativas.", prompts: ["Evolua o tempo.", "Compare estados com paridades diferentes.", "Relacione frequência de cada fasor a n²."], legend: [[C.green, "fasores cₙ"], [C.gold, "|cₙ|²"]] });
+      renderText({ title: "Fases da expansão projetada", subtitle: `${stateName} · cada cₙ gira com Eₙ/ℏ`, caption: "Comprimentos dos vetores vêm das projeções; seus ângulos evoluem em ritmos n².", secondaryTitle: "Probabilidades de energia", secondarySubtitle: "invariantes durante a evolução unitária", secondaryCaption: "As barras não mudam com o tempo, embora as fases relativas mudem.", prediction: "A evolução livre altera os pesos de energia ou apenas suas fases?", calculation: `cₙ(t)=cₙ(0)e⁻ⁱᴱⁿᵗ/ℏ<br>⟨H⟩ = Σ|cₙ|² n² E₁<br><b>⟨H⟩/E₁ (N=${modeCount}) = ${fmt(mean)} · norma capturada=${fmt(projection.capturedNorm)}</b>`, metrics: [["tempo τ", fmt(third, 2)], ["⟨H⟩/E₁ na truncagem", fmt(mean)], ["norma capturada", fmt(projection.capturedNorm)]], concept: "A evolução unitária preserva os módulos das projeções e altera apenas suas fases relativas.", prompts: ["Evolua o tempo.", "Compare estados com paridades diferentes.", "Relacione frequência de cada fasor a n²."], legend: [[C.green, "fasores cₙ"], [C.gold, "|cₙ|²"]] });
     }
   }
 
@@ -374,7 +375,7 @@
 
   function drawPhasors(target, probabilities, phases) {
     const { ctx, width, height } = target;
-    const cols = 3, rows = 2, cellW = width / cols, cellH = height / rows;
+    const cols = Math.ceil(probabilities.length / 2), rows = 2, cellW = width / cols, cellH = height / rows;
     probabilities.forEach((p, i) => {
       const cx = cellW * (i % cols + .5), cy = cellH * (Math.floor(i / cols) + .53), radius = Math.min(cellW, cellH) * .3;
       ctx.strokeStyle = C.grid; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(cx, cy, radius, 0, TAU); ctx.stroke();
@@ -397,7 +398,8 @@
 
   function updateOutputs() {
     ["parameter", "secondary", "tertiary"].forEach(id => {
-      const input = active(id), output = input.closest("label").querySelector("output");
+      const input = active(id); if (!input) return;
+      const output = input.closest("label").querySelector("output");
       output.textContent = fmt(Number(input.value), Number(input.step) >= 1 ? 0 : 2);
     });
   }
@@ -467,7 +469,7 @@
   });
   document.querySelectorAll("[data-view]").forEach(button => button.addEventListener("click", () => switchView(button.dataset.view)));
   document.querySelectorAll("input").forEach(input => input.addEventListener("input", draw));
-  $("resetBtn").addEventListener("click", () => { playing = false; counts = Array(6).fill(0); window.lastMeasurement = null; configureControls(); draw(); });
+  $("resetBtn").addEventListener("click", () => { playing = false; counts = Array(modeCount).fill(0); window.lastMeasurement = null; configureControls(); draw(); });
   window.addEventListener("resize", draw);
   switchView(view);
 })();

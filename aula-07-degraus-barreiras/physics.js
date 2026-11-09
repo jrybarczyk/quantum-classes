@@ -54,22 +54,48 @@
     return V0 + q * q / 2;
   }
 
-  // Perfil espacial (parte real de psi, ate uma normalizacao arbitraria A=1)
-  // para a barreira, usado so para desenhar a decaimento/oscilacao dentro
-  // dela; nao pretende reproduzir a onda completa nas tres regioes com as
-  // fases exatas de conexao (isso exigiria as amplitudes complexas C,D,F).
-  function barrierProfile(x, E, V0, a) {
-    if (x < 0) return Math.cos(kOf(E) * x);
-    if (x <= a) {
-      if (E < V0) {
-        const kappa = Math.sqrt(2 * (V0 - E));
-        return Math.exp(-kappa * x) / Math.exp(-kappa * 0);
-      }
-      const q = Math.sqrt(2 * (E - V0));
-      return Math.cos(q * x);
-    }
-    return null;
+  // ---------------------------------------------------------------- Física médica
+  // Unidades nucleares, com a unidade no nome: energia em MeV, distância em fm.
+  // Nota 07, exemplo resolvido "decaimento alfa do ²²³Ra: da barreira retangular ao
+  // fator de Gamow". Constantes: e²/4πε₀ = 1,44 MeV·fm; ħc = 197,3 MeV·fm;
+  // m_α c² = 3727 MeV; filho ²¹⁹Rn com Z = 86.
+  const NUC = { e2MeVFm: 1.43996, hbarcMeVFm: 197.327, mAlphaMeV: 3727.379, cFmPerS: 2.99792458e23 };
+  // V(r) = 2Ze²/(4πε₀ r), em MeV.
+  function coulombMeV(rFm, Z = 86) { return 2 * Z * NUC.e2MeVFm / rFm; }
+  // Ponto clássico de saída: V(b) = E_α.
+  function turningPointFm(EMeV, Z = 86) { return 2 * Z * NUC.e2MeVFm / EMeV; }
+  // Raio de contato R = 1,2 (A_filho^(1/3) + 4^(1/3)) fm.
+  function contactRadiusFm(Adaughter = 219) { return 1.2 * (Math.cbrt(Adaughter) + Math.cbrt(4)); }
+  // Barreira retangular de altura V(R) − E e largura b − R: expoente 2κa da Eq. (aprox).
+  function rectangleExponent(EMeV, RFm, Z = 86) {
+    const V0 = coulombMeV(RFm, Z), b = turningPointFm(EMeV, Z);
+    if (V0 <= EMeV) return 0;
+    const kappa = Math.sqrt(2 * NUC.mAlphaMeV * (V0 - EMeV)) / NUC.hbarcMeVFm;
+    return 2 * kappa * (b - RFm);
   }
+  // Fator de Gamow (nota 07): T ≈ e^(−G), G = 2∫_R^b κ(r) dr
+  //   = (2b√(2m_αE_α)/ħ) [arccos√(R/b) − √((R/b)(1 − R/b))].
+  function gamowExponent(EMeV, RFm, Z = 86) {
+    const b = turningPointFm(EMeV, Z);
+    if (RFm >= b) return 0;
+    const x = RFm / b;
+    return 2 * b * Math.sqrt(2 * NUC.mAlphaMeV * EMeV) / NUC.hbarcMeVFm * (Math.acos(Math.sqrt(x)) - Math.sqrt(x * (1 - x)));
+  }
+  // Frequência de colisão com a parede: v/2R, v = c√(2E_α/m_αc²), em s⁻¹.
+  function assaultRatePerS(EMeV, RFm) { return NUC.cFmPerS * Math.sqrt(2 * EMeV / NUC.mAlphaMeV) / (2 * RFm); }
+  // λ = (v/2R) e^(−G); T½ = ln 2/λ, em dias.
+  function alphaHalfLifeDays(EMeV, RFm, Z = 86) {
+    const lambda = assaultRatePerS(EMeV, RFm) * Math.exp(-gamowExponent(EMeV, RFm, Z));
+    return Math.LN2 / lambda / 86400;
+  }
+  // Ultrassom (nota 07, "o análogo é o ultrassom"): R = ((Z₁−Z₂)/(Z₁+Z₂))²,
+  // T = 4Z₁Z₂/(Z₁+Z₂)², as Eqs. de R e T do degrau com k → Z. Z em MRayl.
+  function acousticR(Z1MRayl, Z2MRayl) { return ((Z1MRayl - Z2MRayl) / (Z1MRayl + Z2MRayl)) ** 2; }
+  function acousticT(Z1MRayl, Z2MRayl) { return 4 * Z1MRayl * Z2MRayl / (Z1MRayl + Z2MRayl) ** 2; }
+  // Impedâncias acústicas (MRayl) usadas na nota.
+  const TISSUES = { ar: 4e-4, gordura: 1.38, tecido: 1.63, musculo: 1.70, osso: 7.8 };
 
-  return { kOf, step, barrierT, barrierTWide, resonanceEnergy, barrierProfile };
+  return { kOf, step, barrierT, barrierTWide, resonanceEnergy,
+    NUC, coulombMeV, turningPointFm, contactRadiusFm, rectangleExponent, gamowExponent, assaultRatePerS, alphaHalfLifeDays,
+    acousticR, acousticT, TISSUES };
 });

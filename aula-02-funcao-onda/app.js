@@ -78,7 +78,7 @@
   let lastFrame = 0;
   function frame(now) {
     if (!state.playing) return;
-    const slider = $(state.playing), dt = Math.min(0.05, (now - lastFrame) / 1000); lastFrame = now;
+    const slider = $(state.playing), dt = Math.max(0, Math.min(0.05, (now - lastFrame) / 1000)); lastFrame = now;
     let t = +slider.value + dt * 0.6;
     if (t > +slider.max) { if (slider.dataset.loop) t = +slider.min; else { t = +slider.max; stopPlaying(); } }
     slider.value = t.toFixed(3); render();
@@ -183,8 +183,8 @@
     m.c.fillStyle = C.red; m.c.font = "10px Ubuntu,system-ui"; m.c.textAlign = "left"; m.c.fillText("largura a meia altura = 2,355·Δx", m.X(state0.center + half / 2) + 4, m.Y(densityPeak / 2) + 3);
     const deltaK = 1 / (2 * sigma), kSpan = Math.max(3, 4.2 * deltaK), momentumPeak = 1 / (Math.sqrt(2 * Math.PI) * deltaK);
     const secondary = canvasFor("secondaryCanvas", .34);
-    plot(secondary, [{ points: samples(k0 - kSpan, k0 + kSpan, 340, k => P.momentumGaussian(k, sigma, k0)), color: C.red, fill: "rgba(198,92,75,.12)" }], k0 - kSpan, k0 + kSpan, 0, momentumPeak * 1.12, "número de onda k", "|Φ(k)|²");
-    legend([[C.green, "|Ψ(x)|²"], [C.gold, "Re Ψ", true], [C.red, "|Φ(k)|² abaixo"]]);
+    plot(secondary, [{ points: samples(k0 - kSpan, k0 + kSpan, 340, k => P.momentumGaussian(k, sigma, k0)), color: C.red, fill: "rgba(198,92,75,.12)" }], k0 - kSpan, k0 + kSpan, 0, momentumPeak * 1.12, "número de onda k", "|φ(k)|²");
+    legend([[C.green, "|Ψ(x)|²"], [C.gold, "Re Ψ", true], [C.red, "|φ(k)|² abaixo"]]);
     set("secondaryTitle", "Distribuição em número de onda"); set("secondarySubtitle", "a largura Δk não muda durante a evolução livre");
     set("secondaryCaption", "Estreitar o pacote em x exige uma distribuição mais larga em k. Note que os eixos são diferentes: Δx e Δk não se comparam diretamente.");
     set("packetSigmaOut", hidden ? "?" : f(sigma, 2)); set("packetKOut", f(k0, 2)); set("packetTOut", f(t, 2));
@@ -222,17 +222,17 @@
     // último sorteio como "impacto" no detector
     if (n) { const last = state.bornSamples[n - 1]; m.c.fillStyle = C.red; m.c.beginPath(); m.c.arc(m.X(last), m.b - 6, 4, 0, 2 * Math.PI); m.c.fill(); }
     marker(m, a, C.gold, `a=${f(a, 2)}`); marker(m, b, C.gold, `b=${f(b, 2)}`);
-    legend([[C.green, "ρ=|Ψ|² normalizada"], [C.blue, `histograma de ${n} medições`], [C.gold, "intervalo [a,b]"]]);
+    legend([[C.green, "ρ=|ψ|² normalizada"], [C.blue, `histograma de ${n} medições`], [C.gold, "intervalo [a,b]"]]);
     const probability = P.bornInterval(a, b, phase, ratio), observed = P.fractionInInterval(state.bornSamples, a, b);
     set("bornPhaseOut", `${f(phase / Math.PI, 2)}π`); set("bornRatioOut", f(ratio, 2)); set("bornLeftOut", f(a, 2)); set("bornRightOut", f(b, 2));
-    set("statusTitle", "Born e interferência"); set("statusDetail", `φ=${f(phase / Math.PI, 2)}π · r=${f(ratio, 2)} · N=${n}`);
-    set("mainTitle", n ? `Detector: ${n} partículas medidas` : "Densidade de probabilidade"); set("mainSubtitle", n ? "o histograma converge para |Ψ|² quando N cresce" : "amplitudes somam antes do módulo ao quadrado");
-    set("caption", "Cada medição de posição dá um único ponto; a função de onda só prevê a estatística de muitas medições. A fase relativa φ desloca as franjas; a fase global não aparece. Com r≠1 o termo cruzado 2r·cos(2x−φ) não cancela os termos diretos e as franjas não chegam a zero.");
-    set("prediction", "Com 10 medições o histograma vai parecer |Ψ|²? E com 1000? Aumentar φ muda a probabilidade em [a,b] ou só desloca as franjas?");
-    html("calculation", `P(a≤x≤b) = ∫<sub>a</sub><sup>b</sup> ρ dx = <b>${f(probability, 3)}</b><small>fração observada em [a,b]: ${n ? `${state.bornSamples.filter(x => x >= a && x <= b).length}/${n} = ${f(observed, 3)}` : "— (meça primeiro)"}</small><small>|Ψ|²/|A|² = 1 + r² + 2r·cos(2x−φ); máximo (1+r)²=${f((1 + ratio) ** 2, 2)}, mínimo (1−r)²=${f((1 - ratio) ** 2, 2)}</small><small>Normalização em um período: ∫₀^{2π}|Ψ|²dx=1 ⇒ |A|²=1/[2π(1+r²)]. Na reta inteira esta Ψ não é normalizável.</small>`);
-    metrics([["P(a,b) exata", f(probability, 3)], ["fração observada", n ? f(observed, 3) : "—"], ["N medições", n], ["máximos em", `x = φ/2 + nπ = ${f(phase / 2, 2)} + nπ`], ["fase global", "não observável"]]);
-    set("conceptTitle", "Born transforma amplitude em estatística"); set("conceptText", "|Ψ|² não diz onde a partícula está: diz com que frequência cada posição aparece ao repetir a medida em sistemas preparados do mesmo modo. A interferência sobrevive porque as amplitudes somam antes do quadrado.");
-    prompts(["Meça 1 partícula de cada vez: dá para prever onde ela cai?", "Meça 1000 e compare a fração em [a,b] com P(a,b). Repita com φ=π/2.", "Ponha r=2 (o exercício A·e^{ikx}+2A·e^{−ikx}): localize máximos e mínimos e explique por que não há zeros."]);
+    set("statusTitle", "Born e interferência"); set("statusDetail", `α=${f(phase / Math.PI, 2)}π · r=${f(ratio, 2)} · N=${n}`);
+    set("mainTitle", n ? `Detector: ${n} partículas medidas` : "Densidade de probabilidade"); set("mainSubtitle", n ? "o histograma converge para |ψ|² quando N cresce" : "amplitudes somam antes do módulo ao quadrado");
+    set("caption", "Cada medição de posição dá um único ponto; a função de onda só prevê a estatística de muitas medições. A fase relativa α desloca as franjas; a fase global não aparece. Com r≠1 o termo cruzado 2r·cos(2x−α) não cancela os termos diretos e as franjas não chegam a zero.");
+    set("prediction", "Com 10 medições o histograma vai parecer |ψ|²? E com 1000? Aumentar α muda a probabilidade em [a,b] ou só desloca as franjas?");
+    html("calculation", `P(a≤x≤b) = ∫<sub>a</sub><sup>b</sup> ρ dx = <b>${f(probability, 3)}</b><small>fração observada em [a,b]: ${n ? `${state.bornSamples.filter(x => x >= a && x <= b).length}/${n} = ${f(observed, 3)}` : "— (meça primeiro)"}</small><small>|ψ|²/|A|² = 1 + r² + 2r·cos(2x−α); máximo (1+r)²=${f((1 + ratio) ** 2, 2)}, mínimo (1−r)²=${f((1 - ratio) ** 2, 2)}</small><small>Normalização em um período: ∫<sub>0</sub><sup>2π</sup>|ψ|²dx=1 ⇒ |A|²=1/[2π(1+r²)]. Na reta inteira esta ψ não é normalizável.</small>`);
+    metrics([["P(a,b) exata", f(probability, 3)], ["fração observada", n ? f(observed, 3) : "—"], ["N medições", n], ["máximos em", `x = α/2 + nπ = ${f(phase / 2, 2)} + nπ`], ["fase global", "não observável"]]);
+    set("conceptTitle", "Born transforma amplitude em estatística"); set("conceptText", "|ψ|² não diz onde a partícula está: diz com que frequência cada posição aparece ao repetir a medida em sistemas preparados do mesmo modo. A interferência sobrevive porque as amplitudes somam antes do quadrado.");
+    prompts(["Meça 1 partícula de cada vez: dá para prever onde ela cai?", "Meça 1000 e compare a fração em [a,b] com P(a,b). Repita com α=π/2.", "Ponha r=2 (o exercício A·e^{ikx}+2A·e^{−ikx}): localize máximos e mínimos e explique por que não há zeros."]);
     $("marksSection").hidden = true;
   }
 
@@ -299,7 +299,7 @@
     try { const u = new URL(location.href); u.searchParams.set("view", view); history.replaceState(null, "", u); } catch (_) {}
     render();
   }
-  const defaults = { plane: ["planeK", 2, "planeT", 0, "planeLambda", .1], build: ["buildN", 1, "buildDk", .3, "buildK0", 2, "buildT", 0], packet: ["packetSigma", .7, "packetK", 2, "packetT", 0], born: ["bornPhase", 0, "bornRatio", 1, "bornLeft", 0, "bornRight", 3.14], schrodinger: ["schrodingerK", 2, "schrodingerM", 1, "schrodingerT", 1, "schrodingerOmega", 2] };
+  const defaults = { plane: ["planeK", 2, "planeT", 0, "planeLambda", .1], build: ["buildN", 1, "buildDk", .3, "buildK0", 2, "buildT", 0], packet: ["packetSigma", .7, "packetK", 2, "packetT", 0], born: ["bornPhase", 0, "bornRatio", 1, "bornLeft", 0, "bornRight", 1.57], schrodinger: ["schrodingerK", 2, "schrodingerM", 1, "schrodingerT", 1, "schrodingerOmega", 2] };
 
   // ---------- eventos ----------
   document.querySelector(".tabs").addEventListener("keydown", (event) => { if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return; const tabs = [...document.querySelectorAll("[data-view]")], current = tabs.findIndex(tab => tab.dataset.view === view), index = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (current + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length; event.preventDefault(); tabs[index].focus(); switchView(tabs[index].dataset.view); });
@@ -319,7 +319,7 @@
   $("bornSample100").addEventListener("click", () => { state.bornSamples.push(...P.sampleBorn(100, v("bornPhase"), v("bornRatio"))); render(); });
   $("bornSample1000").addEventListener("click", () => { state.bornSamples.push(...P.sampleBorn(1000, v("bornPhase"), v("bornRatio"))); render(); });
   $("bornClear").addEventListener("click", () => { state.bornSamples = []; render(); });
-  // mudar φ ou r invalida as medições anteriores: o estado preparado mudou
+  // mudar α ou r invalida as medições anteriores: o estado preparado mudou
   ["bornPhase", "bornRatio"].forEach(id => $(id).addEventListener("input", () => { state.bornSamples = []; }));
   $("schrodingerFree").addEventListener("click", () => { $("schrodingerOmega").value = P.freeOmega(v("schrodingerK"), v("schrodingerM")).toFixed(3); render(); });
   $("planeChallenge").addEventListener("click", () => startChallenge("plane", "planeK", 1, 5, .5));
