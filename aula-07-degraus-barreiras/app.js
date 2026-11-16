@@ -3,7 +3,7 @@
   const P = window.BarrierPhysics, $ = (id) => document.getElementById(id);
   const C = { green: "#619b60", lime: "#83c44e", red: "#c65c4b", gold: "#e9a23b", blue: "#457b9d", purple: "#7b5ea7", gray: "#6f7171", ink: "#26312d", grid: "#dce5dc" };
   let view = new URLSearchParams(location.search).get("view") || "degrau";
-  const f = (x, n = 3) => P.formatPt(x, n), sig = (x, n = 3) => P.sigPt(x, n), sci = (x, n = 1) => P.sciPt(x, n);
+  const f = (x, n = 3) => P.formatPt(x, n), fTrim = (x) => { let d = 2; while (d < 4 && Math.abs(x - Number(x.toFixed(d))) > 1e-9) d += 1; return P.formatPt(x, d); }, sig = (x, n = 3) => P.sigPt(x, n), sci = (x, n = 1) => P.sciPt(x, n);
   function set(id, text) { $(id).innerHTML = text; } function html(id, content) { $(id).innerHTML = content; }
   function metrics(rows) { html("metrics", rows.map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join("")); }
   function prompts(rows) { html("prompts", rows.map((x) => `<li>${x}</li>`).join("")); }
@@ -168,7 +168,7 @@
     if (below) tag(d.c, `inclinação −2κ = ${f(-2 * kappa, 2)}`, ax.r - 4, ax.t + 14, C.red, "right", `bold 10.5px ${FONT}`);
     else tag(d.c, "E ≥ V₀: sem reta (κ imaginário)", ax.r - 4, ax.t + 14, C.gray, "right", `bold 10.5px ${FONT}`);
     legend([...waveLegend(comps), [C.green, "T exato · ln T exato"], [C.red, "aproximação de barreira larga", true], [C.gold, "E (ou a) atual"]]);
-    set("barreiraEOut", f(ratio, 2)); set("barreiraV0Out", f(V0, 2)); set("barreiraAOut", f(a, 2));
+    set("barreiraEOut", f(ratio, 2)); set("barreiraV0Out", f(V0, 2)); set("barreiraAOut", fTrim(a));
     set("statusTitle", "Barreira retangular"); set("statusDetail", `E/V₀ = ${f(ratio, 2)} · a = ${f(a, 2)}`);
     set("mainTitle", "ψ nas três regiões, T(E) e ln T contra a"); set("mainSubtitle", "alto: Re ψ e |ψ| · embaixo à esquerda: T contra E/V₀ · à direita: ln T contra a, reta de inclinação −2κ");
     set("caption", "T nunca é zero abaixo de V₀: dentro da barreira |ψ| decai (não é zero) e sobra uma onda progressiva em III, de amplitude √T. Em ln T contra a a exponencial vira reta; o ponto verde é o estado atual e o círculo vermelho, a aproximação (só vale quando as duas curvas se confundem).");
@@ -306,9 +306,9 @@
   function setValues(d) { for (let i = 0; i < d.length; i += 2) { const el = $(d[i]); if (el.type === "checkbox") el.checked = d[i + 1]; else el.value = d[i + 1]; } }
   $("resetBtn").addEventListener("click", () => { setValues(DEFAULTS[view]); render(); });
   // Presets da nota (estação 2). Exemplo numérico: E = 2 eV, V₀ = 5 eV, a = 0,5 nm (κa = 4,44);
-  // em unidades reduzidas E/V₀ = 0,4, V₀ = 1 e a = 4,05 (a/√(ħ²/mV₀) = 0,5 nm/0,1235 nm): T = 5,38×10⁻⁴.
+  // em unidades reduzidas E/V₀ = 0,4, V₀ = 1 e a = 4,0502 (a/√(ħ²/mV₀) = 0,5 nm/0,1235 nm): T = 5,376×10⁻⁴.
   // Figura da nota: E = 0,3V₀ e κa = 2,0 (V₀ = 1: a = 1,69), T = 0,060.
-  $("presetNota").addEventListener("click", () => { setValues(["barreiraE", .4, "barreiraV0", 1, "barreiraA", 4.05]); render(); });
+  $("presetNota").addEventListener("click", () => { setValues(["barreiraE", .4, "barreiraV0", 1, "barreiraA", 4.0502]); render(); });
   $("presetFigura").addEventListener("click", () => { setValues(["barreiraE", .3, "barreiraV0", 1, "barreiraA", 1.69]); render(); });
   new URLSearchParams(location.search).forEach((value, key) => { const el = $(key); if (el && key !== "view" && (el.tagName === "INPUT" || el.tagName === "SELECT")) { if (el.type === "checkbox") el.checked = value !== "0" && value !== "false"; else el.value = value; } });
   window.addEventListener("resize", render);
