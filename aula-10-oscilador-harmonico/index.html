@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="Aplicação interativa da aula 10: oscilador harmônico quântico — quantização por tiro, autofunções de Hermite, limite clássico e espectroscopia vibracional de tecidos.">
 <title>Aula 10 · Oscilador harmônico</title>
-<link rel="stylesheet" href="../_shared/dashboard.css?v=7716005a8c">
-<link rel="stylesheet" href="styles.css?v=e2ccd5ff2e">
+<link rel="stylesheet" href="../_shared/dashboard.css?v=f634b2ad9d">
+<link rel="stylesheet" href="styles.css?v=7dcf8dad72">
 </head>
 <body>
 <a class="skip-link" href="#simulador">Ir para o simulador</a>
@@ -59,9 +59,9 @@
 
     <section class="view-controls" data-controls="medica">
       <h3>Vibração de uma ligação química</h3>
-      <p class="equation">ħω = hcν̃, ℓ = ħc/√(μc²·ħω), P₁/P₀ = e<sup>−ħω/k<sub>B</sub>T</sup></p>
-      <p class="hint">Variável: o número de onda ν̃. Depois: o par de átomos (μ) e a temperatura T.</p>
-      <label><span>número de onda ν̃ (cm⁻¹)</span><output id="medNuOut"></output><input id="medNu" type="range" min="800" max="4500" step="10" value="1700"></label>
+      <p class="equation">ħω = hc<span class="wn">ν</span>, ℓ = ħc/√(μc²·ħω), P₁/P₀ = e<sup>−ħω/k<sub>B</sub>T</sup></p>
+      <p class="hint">Variável: o número de onda <span class="wn">ν</span>. Depois: o par de átomos (μ) e a temperatura T.</p>
+      <label><span>número de onda <span class="wn">ν</span> (cm⁻¹)</span><output id="medNuOut"></output><input id="medNu" type="range" min="800" max="4500" step="1" value="1700"></label>
       <label class="state-select"><span>par de átomos</span><select id="medPair"><option value="C=O">C=O · μ = 12·16/28 u · d = 123 pm</option><option value="C-H">C–H · μ = 12·1/13 u · d = 109 pm</option><option value="O-H">O–H · μ = 16·1/17 u · d = 96 pm</option><option value="H2">H₂ · μ = 0,5 u · d = 74 pm</option></select></label>
       <label><span>temperatura T (K)</span><output id="medTOut"></output><input id="medT" type="range" min="77" max="310" step="1" value="310"></label>
       <div class="presets"><button type="button" data-med="1700,C=O,310">C=O a 37 °C (exemplo da nota)</button><button type="button" data-med="1655,C=O,310">amida I (1655 cm⁻¹)</button><button type="button" data-med="1740,C=O,310">éster (1740 cm⁻¹)</button><button type="button" data-med="4401,H2,310">H₂ (4401 cm⁻¹)</button><button type="button" id="medShow">mostrar população térmica</button></div>
@@ -87,7 +87,7 @@
 
 <footer><span>Biocomplexity Lab · material didático</span><span>Instituto de Biociências de Botucatu — UNESP · Depto. de Biofísica e Farmacologia · Prof. Assoc. José L. Rybarczyk-Filho</span></footer>
 </main>
-<script src="physics.js?v=3ed70f4ee4"></script>
-<script src="app.js?v=e265f35438"></script>
+<script src="physics.js?v=aba2f1c7da"></script>
+<script src="app.js?v=dfa241a138"></script>
 </body>
 </html>

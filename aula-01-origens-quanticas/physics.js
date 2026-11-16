@@ -181,9 +181,11 @@
     const totalMass = coherent + photoelectric + compton + pair;
     const linear = totalMass * material.density;
     const transmission = Math.exp(-linear * Math.max(0, thicknessCm));
+    // log₁₀(I/I₀) = −μx/ln 10: exato mesmo quando exp(−μx) estoura para 0 (chumbo, 10 cm, 90 keV).
+    const log10Transmission = -linear * Math.max(0, thicknessCm) / Math.LN10;
     const channels = { coherent, photoelectric, compton, pair };
     const dominant = Object.keys(channels).reduce((best, key) => channels[key] > channels[best] ? key : best, "coherent");
-    return { material, coherent, photoelectric, compton, pair, totalMass, linear, transmission, dominant };
+    return { material, coherent, photoelectric, compton, pair, totalMass, linear, transmission, log10Transmission, dominant };
   }
 
   // Bordas de absorção da tabela (energias repetidas), em MeV.
@@ -192,7 +194,45 @@
     return table.filter((row, i) => i > 0 && row[0] === table[i - 1][0]).map(row => row[0]);
   }
 
+  // ---------- apresentação: marcas "bonitas" de eixo e números em pt-BR ----------
+  // Marcas em múltiplos de 1, 2 ou 5 × 10ᵏ, sempre incluindo o 0 quando ele está no
+  // intervalo; os rótulos usam as casas decimais do passo (passo 0,2 → 1 casa).
+  // (Extensão de apresentação: não vem da nota; ver GUIA-DIDATICO.md, "Apresentação".)
+  function niceTicks(min, max, target = 5) {
+    const span = max - min;
+    if (!(span > 0) || !Number.isFinite(span)) return { step: 1, digits: 0, ticks: Number.isFinite(min) ? [min] : [] };
+    const raw = span / Math.max(1, target), p = 10 ** Math.floor(Math.log10(raw)), f = raw / p;
+    const step = (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * p, ticks = [];
+    const first = Math.ceil(min / step - 1e-9), last = Math.floor(max / step + 1e-9);
+    for (let i = first; i <= last; i += 1) { const v = i * step; ticks.push(Math.abs(v) < step * 1e-9 ? 0 : Number(v.toFixed(12))); }
+    return { step, digits: Math.max(0, -Math.floor(Math.log10(step) + 1e-9)), ticks };
+  }
+  // Número em pt-BR: vírgula decimal, "−" tipográfico, sem separador de milhar e sem
+  // "−0": valor cujo módulo é menor que meia casa mostrada vira 0.
+  function formatNumber(value, digits = 3) {
+    let n = Number(value);
+    if (!Number.isFinite(n)) return Number.isNaN(n) ? "—" : n > 0 ? "∞" : "−∞";
+    if (Math.abs(n) < 0.5 * 10 ** -digits) n = 0;
+    return n.toLocaleString("pt-BR", { minimumFractionDigits: digits, maximumFractionDigits: digits, useGrouping: false }).replace(/-/g, "−");
+  }
+  // Notação científica em HTML com vírgula decimal: 6,2×10<sup>−8</sup>.
+  function formatScientific(value, digits = 3) {
+    if (!Number.isFinite(value)) return "—";
+    if (value === 0) return formatNumber(0, digits);
+    return scientificFromLog10(Math.log10(Math.abs(value)), digits, value < 0);
+  }
+  // Mesma coisa a partir de log₁₀|v| (para valores abaixo de 10⁻³⁰⁰, que não cabem num double).
+  function scientificFromLog10(log10Value, digits = 3, negative = false) {
+    let exponent = Math.floor(log10Value), mantissa = 10 ** (log10Value - exponent);
+    if (Number(mantissa.toFixed(digits)) >= 10) { mantissa /= 10; exponent += 1; }
+    return `${negative ? "−" : ""}${formatNumber(mantissa, digits)}×10<sup>${String(exponent).replace("-", "−")}</sup>`;
+  }
+
   return {
+    niceTicks,
+    formatNumber,
+    formatScientific,
+    scientificFromLog10,
     constants,
     planckFrequency,
     rayleighJeansFrequency,

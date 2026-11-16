@@ -13,3 +13,5 @@
 .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 6px 0 4px; }
 .seg button { min-height: 32px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--muted); font-size: .7rem; cursor: pointer; }
 .seg button.on { border-color: var(--dark); background: #f4faef; color: var(--ink); font-weight: 700; }
+/* Celular: o painel secundário não é achatado pelo teto de altura do dashboard (a altura do canvas já tem mínimo). */
+@media (max-width: 600px) { .secondary-panel canvas { max-height: none; } }

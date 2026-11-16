@@ -9,21 +9,43 @@
   // movimento de controle (ou do botão "mostrar"); Reiniciar esconde de novo.
   const revealed = { classico: false, medica: false };
 
-  const f = (x, n = 3) => Number(x).toLocaleString("pt-BR", { maximumFractionDigits: n, minimumFractionDigits: n });
-  const fi = (x) => Number(x).toLocaleString("pt-BR", { maximumFractionDigits: 0, useGrouping: false });
+  // pt-BR, sem separador de milhar, sem "−0" e com o sinal tipográfico "−".
+  const minus = (t) => (/^-0(,0*)?$/.test(t) ? t.slice(1) : t).replace("-", "−");
+  const f = (x, n = 3) => minus(Number(x).toLocaleString("pt-BR", { maximumFractionDigits: n, minimumFractionDigits: n, useGrouping: false }));
+  const fi = (x) => minus(Number(x).toLocaleString("pt-BR", { maximumFractionDigits: 0, useGrouping: false }));
+  // Micro-marcação das strings da tela: X_y e X_{yz} viram subscrito; ^{...} vira sobrescrito;
+  // k_BT vira k<sub>B</sub>T; ν̃ (número de onda) leva um traço sobreposto. No canvas, rich() desenha o mesmo.
+  const MARK = /_\{([^}]*)\}|_(B)(?=T)|_([A-Za-z0-9]+)|\^\{([^}]*)\}/g;
+  const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  // DOM: o sobrescrito é resolvido antes, para aceitar subscrito dentro dele (e^{−ħω/k_BT}).
+  const SUBMARK = /_\{([^}]*)\}|_(B)(?=T)|_([A-Za-z0-9]+)/g;
+  const markup = (t) => String(t).replace(/\^\{([^}]*)\}/g, "<sup>$1</sup>").replace(SUBMARK, (m, a, b, c) => `<sub>${a ?? b ?? c}</sub>`).replace(/ν\u0303/g, '<span class="wn">ν</span>');
   function sci(x, n = 1) {
     if (!(Math.abs(x) > 0)) return "0";
     const e = Math.floor(Math.log10(Math.abs(x))), m = x / Math.pow(10, e);
     const sup = String(e).replace("-", "⁻").replace(/\d/g, (d) => "⁰¹²³⁴⁵⁶⁷⁸⁹"[+d]);
     return `${f(m, n)}×10${sup}`;
   }
-  function set(id, text) { $(id).textContent = text; }
-  function html(id, content) { $(id).innerHTML = content; }
+  function set(id, text) { $(id).innerHTML = markup(esc(text)); }
+  function html(id, content) { $(id).innerHTML = markup(content); }
+  function rich(ctx, text, x, y, align = "left") {
+    const size = parseFloat(/(\d+(?:\.\d+)?)px/.exec(ctx.font)[1]), face = ctx.font.replace(/\d+(?:\.\d+)?px/, "§"), seg = [];
+    let last = 0; String(text).replace(MARK, (m, a, b, c, d, off) => { if (off > last) seg.push({ t: text.slice(last, off) }); seg.push(d !== undefined ? { t: d, sup: true } : { t: a ?? b ?? c, sub: true }); last = off + m.length; return m; });
+    if (last < text.length) seg.push({ t: text.slice(last) });
+    const fontOf = (g) => face.replace("§", `${g.sub || g.sup ? Math.round(size * 0.75 * 10) / 10 : size}px`);
+    let total = 0; seg.forEach((g) => { ctx.font = fontOf(g); g.w = ctx.measureText(g.t).width; total += g.w; });
+    let cx = align === "center" ? x - total / 2 : align === "right" ? x - total : x; const keep = ctx.textAlign; ctx.textAlign = "left";
+    seg.forEach((g) => { ctx.font = fontOf(g); ctx.fillText(g.t, cx, y + (g.sub ? 0.25 * size : g.sup ? -0.4 * size : 0)); cx += g.w; });
+    ctx.font = face.replace("§", `${size}px`); ctx.textAlign = keep;
+  }
+  // Marcas redondas (P.niceTicks) com o rótulo na precisão do passo.
+  function tickList(min, max, target) { const { step, ticks } = P.niceTicks(min, max, target), dec = P.tickDecimals(step); return ticks.map((v) => ({ v, l: f(v, dec) })); }
+  function niceMax(v, target = 5) { const { step } = P.niceTicks(0, v, target); return Math.ceil(v / step - 1e-9) * step; }
   function metrics(rows) { html("metrics", rows.map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join("")); }
   function prompts(rows) { html("prompts", rows.map((x) => `<li>${x}</li>`).join("")); }
   function legend(rows) { html("legend", rows.map(([color, label, dash]) => `<span><i style="border-color:${color};${dash ? "border-top-style:dashed" : ""}"></i>${label}</span>`).join("")); }
-  function canvas() {
-    const e = $("mainCanvas"), ratio = Math.max(1, Math.min(2, devicePixelRatio || 1)), w = e.clientWidth || 900, h = Math.max(300, w * 560 / 1100);
+  function canvas(hNarrow = 330) {
+    const e = $("mainCanvas"), ratio = Math.max(1, Math.min(2, devicePixelRatio || 1)), w = e.clientWidth || 900, h = w < 600 ? hNarrow : Math.max(300, w * 560 / 1100);
     e.width = w * ratio; e.height = h * ratio;
     const c = e.getContext("2d"); c.scale(ratio, ratio); c.clearRect(0, 0, w, h);
     return { c, w, h };
@@ -37,30 +59,22 @@
     const ex = extras || {};
     (ex.fills || []).forEach((z) => { c.fillStyle = z.color || C.shade; c.fillRect(X(Math.max(min, z.from)), t, X(Math.min(max, z.to)) - X(Math.max(min, z.from)), b - t); });
     c.strokeStyle = C.grid; c.lineWidth = 1; c.fillStyle = C.gray; c.font = "10px Ubuntu,system-ui";
-    const nx = ex.nx || 6, ny = ex.ny || 5;
-    for (let i = 0; i <= nx; i += 1) {
-      const x = min + i * (max - min) / nx;
-      c.beginPath(); c.moveTo(X(x), t); c.lineTo(X(x), b); c.stroke();
-      c.textAlign = "center"; c.fillText(ex.xfmt ? ex.xfmt(x) : f(x, 1), X(x), b + 15);
-    }
-    for (let i = 0; i <= ny; i += 1) {
-      const y = ymin + i * (ymax - ymin) / ny;
-      c.beginPath(); c.moveTo(l, Y(y)); c.lineTo(r, Y(y)); c.stroke();
-      c.textAlign = "right"; c.fillText(ex.yfmt ? ex.yfmt(y) : f(y, 2), l - 6, Y(y) + 3);
-    }
+    // marcas redondas, com 0 (niceTicks); ex.xt / ex.yt: lista explícita [{v, l}]
+    (ex.xt || tickList(min, max, ex.nx || 6)).forEach((k) => { c.beginPath(); c.moveTo(X(k.v), t); c.lineTo(X(k.v), b); c.stroke(); c.textAlign = "center"; c.fillText(k.l, X(k.v), b + 15); });
+    (ex.yt || tickList(ymin, ymax, ex.ny || 5)).forEach((k) => { c.beginPath(); c.moveTo(l, Y(k.v)); c.lineTo(r, Y(k.v)); c.stroke(); c.textAlign = "right"; c.fillText(k.l, l - 6, Y(k.v) + 3); });
     c.strokeStyle = C.gray; c.beginPath(); c.moveTo(l, b); c.lineTo(r, b); c.moveTo(l, t); c.lineTo(l, b); c.stroke();
-    c.fillStyle = C.gray; c.font = "11px Ubuntu,system-ui"; c.textAlign = "center"; c.fillText(labels[0], (l + r) / 2, b + 32);
-    c.save(); c.translate(l - 44, (t + b) / 2); c.rotate(-Math.PI / 2); c.fillText(labels[1], 0, 0); c.restore();
+    c.fillStyle = C.gray; c.font = "11px Ubuntu,system-ui"; rich(c, labels[0], (l + r) / 2, b + 32, "center");
+    c.save(); c.translate(l - 44, (t + b) / 2); c.rotate(-Math.PI / 2); rich(c, labels[1], 0, 0, "center"); c.restore();
     c.save(); c.beginPath(); c.rect(l, t, r - l, b - t); c.clip();
     (ex.marks || []).forEach((m) => {
       c.strokeStyle = m.color || C.gray; c.lineWidth = 1.4; c.setLineDash(m.dash || [4, 4]);
       c.beginPath(); c.moveTo(X(m.x), t); c.lineTo(X(m.x), b); c.stroke(); c.setLineDash([]);
-      if (m.label) { c.fillStyle = m.color || C.gray; c.font = "10px Ubuntu,system-ui"; c.textAlign = "left"; c.fillText(m.label, X(m.x) + 4, t + 12); }
+      if (m.label) { c.fillStyle = m.color || C.gray; c.font = "10px Ubuntu,system-ui"; const fits = X(m.x) + 8 + c.measureText(m.label).width < r; rich(c, m.label, X(m.x) + (fits ? 4 : -4), t + 12, fits ? "left" : "right"); }
     });
     (ex.hlines || []).forEach((m) => {
       c.strokeStyle = m.color || C.gray; c.lineWidth = 1.4; c.setLineDash(m.dash || []);
       c.beginPath(); c.moveTo(X(m.from === undefined ? min : m.from), Y(m.y)); c.lineTo(X(m.to === undefined ? max : m.to), Y(m.y)); c.stroke(); c.setLineDash([]);
-      if (m.label) { c.fillStyle = m.color || C.gray; c.font = "10px Ubuntu,system-ui"; c.textAlign = "left"; c.fillText(m.label, X(m.to === undefined ? max : m.to) + 4, Y(m.y) + 3); }
+      if (m.label) { c.fillStyle = m.color || C.gray; c.font = "10px Ubuntu,system-ui"; if (m.edge) rich(c, m.label, r - 4, Y(m.y) - 4, "right"); else rich(c, m.label, X(m.to === undefined ? max : m.to) + 4, Y(m.y) + 3, "left"); }
     });
     series.forEach((s) => {
       c.strokeStyle = s.color; c.lineWidth = s.width || 2.4; c.setLineDash(s.dash || []); c.globalAlpha = s.alpha || 1;
@@ -84,7 +98,7 @@
     let refPeak = 0; for (let x = 0; x * x <= 2 * n + 1; x += 0.01) refPeak = Math.max(refPeak, Math.abs(P.psi(n, x)));
     const ref = samples(-6, 6, 481, (x) => P.psi(n, x) / refPeak);
     const d = canvas(), box = { l: 62, r: d.w - 20, t: 24, b: d.h - 56 };
-    plot(d.c, box, [{ points: ref, color: C.blue, dash: [6, 4], width: 1.8 }, { points: shot, color: C.red }], [-6, 6], [-2.5, 2.5], ["ξ = x/ℓ", "ψ (pico central = 1)"], { marks: [{ x: -6, color: C.gray }, { x: 6, color: C.gray }], nx: 6, ny: 5 });
+    plot(d.c, box, [{ points: ref, color: C.blue, dash: [6, 4], width: 1.8 }, { points: shot, color: C.red }], [-6, 6], [-2.5, 2.5], ["ξ = x/ℓ", "ψ (pico de |ψ| = 1)"], { marks: [{ x: -6, color: C.gray }, { x: 6, color: C.gray }], nx: 6, ny: 5 });
     legend([[C.red, "ψ(ξ) integrada com este ε"], [C.blue, `ψ${sub(n)} de Hermite (ε = ${f(epsN, 1)})`, true]]);
     const ratioEnd = Math.abs(s.psiEnd) * scale, allowed = Math.abs(eps - epsN) < 0.005;
     set("tiroEpsOut", f(eps, 2));
@@ -92,12 +106,18 @@
     set("statusDetail", `|ψ(6)|/pico = ${sci(ratioEnd)}`);
     set("mainTitle", "Integração de ψ″ = (ξ² − 2ε)ψ a partir da origem");
     set("mainSubtitle", `paridade ${parity}; o eixo vertical corta em ±2,5 para que a divergência saia do gráfico`);
-    const extraCross = s.nodes > n;
+    // nodesInner: cruzamentos em |ξ| < √(2ε) (região permitida), que são nós de verdade da solução;
+    // os demais (nodes − nodesInner) estão na cauda divergente. Se nodesInner > n, o excesso de
+    // cruzamentos em relação a ψₙ já está dentro da região permitida (parecer #4).
+    const extraCross = s.nodes > n, tail = s.nodes - s.nodesInner;
+    const common = "Para este ε a série de h(ξ) não termina e ψ cresce como e^{+ξ²/2}: a cauda estoura a escala.";
     set("caption", allowed
       ? "Com ε = n + ½ a série de h(ξ) termina: a curva integrada cai para zero e cola na autofunção de Hermite tracejada."
       : (extraCross
-        ? `Para este ε a série de h(ξ) não termina e ψ cresce como e^{+ξ²/2}: a cauda estoura a escala. O último cruzamento de zero está na cauda que estoura — entrou pelo infinito quando ε cruzou ε${sub(n)} = ${f(epsN, 1)} (teorema de oscilação de Sturm) e só vira nó de verdade em ε${sub(n + 2)}; só para ε = n + ½ os cruzamentos são os n nós de ψₙ.`
-        : `Para este ε a série de h(ξ) não termina e ψ cresce como e^{+ξ²/2}: a cauda estoura a escala. Os cruzamentos de zero coincidem com os ${n} nós de ψ${sub(n)}, mas a cauda não volta a zero: a solução é rejeitada.`));
+        ? (s.nodesInner > n
+          ? `${common} Os ${fi(s.nodesInner)} cruzamentos de zero em |ξ| < √(2ε) já são nós da região permitida (a solução oscila lá dentro, com mais nós que ψ${sub(n)}); ${tail > 0 ? `só ${tail === 1 ? "o último, da cauda, é artefato" : `os ${fi(tail)} últimos, da cauda, são artefato`}: ${tail === 1 ? "entrou" : "entraram"} pelo infinito quando ε cruzou o valor permitido seguinte (teorema de oscilação de Sturm)` : "não há cruzamento na cauda"}. Só para ε = n + ½ os cruzamentos são os n nós de ψₙ.`
+          : `${common} O último cruzamento de zero está na cauda que estoura — entrou pelo infinito quando ε cruzou ε${sub(n)} = ${f(epsN, 1)} (teorema de oscilação de Sturm) e só vira nó de verdade em ε${sub(n + 2)}; só para ε = n + ½ os cruzamentos são os n nós de ψₙ.`)
+        : `${common} Os cruzamentos de zero coincidem com os ${n} nós de ψ${sub(n)}, mas a cauda não volta a zero: a solução é rejeitada.`));
     set("prediction", "Para ε = 1,0 (entre o fundamental e o primeiro excitado), a cauda em ξ = 6 será ~1, ~10³ ou ~10⁶ vezes o pico? A solução é normalizável?");
     html("calculation", `ψ″ = (ξ² − 2ε)ψ = (ξ² − ${f(2 * eps, 2)})ψ<br>ε permitido mais próximo: n + ½ = ${f(epsN, 1)} (n = ${n})<br><b>|ψ(ξ<sub>máx</sub>)|/pico = ${sci(ratioEnd)} → log₁₀ = ${f(Math.log10(ratioEnd || 1e-300), 1)}</b><small>${allowed ? "cauda ≈ zero: solução aceita" : `<span class="warn">cauda ${sci(ratioEnd)} vezes o pico: rejeitada</span>`}</small>`);
     metrics([["ε = E/ħω", f(eps, 2)], ["|ψ(6)|/pico", sci(ratioEnd)], ["log₁₀ |ψ(6)|/pico", f(Math.log10(ratioEnd || 1e-300), 1)], ["cruzamentos de zero em |ξ| < 6", fi(s.nodes)], ["cruzamentos em |ξ| < √(2ε)", fi(s.nodesInner)], ["ε permitido mais próximo", `${f(epsN, 1)} (n = ${n}; |ε − ε${sub(n)}| = ${f(Math.abs(eps - epsN), 2)})`]]);
@@ -157,7 +177,7 @@
     html("calculation", `ρ<sub>cl</sub>(0) = 1/(π√(2n + 1)) = 1/(π√${fi(2 * n + 1)}) = ${f(rc0, 4)}<br>ρ<sub>cl</sub>(0,8 x<sub>cl</sub>) = 1/(π√(x<sub>cl</sub>² − 0,64 x<sub>cl</sub>²)) = ${f(rc8, 4)}<br><b>média local(0)/ρ<sub>cl</sub>(0) = ${show ? f(a0 / rc0, 3) : hid}</b><small>período das oscilações de |ψ${sub(n)}|² no centro: π/√(2n+1) = ${f(lam, 3)} ℓ (ψ oscila com o dobro, 2π/√(2n+1) = ${f(2 * lam, 3)} ℓ)</small>`);
     metrics([["ε_n = n + ½", f(P.energy(n), 1)], ["x_cl/ℓ", f(xc, 3)], ["ρ_cl(0)", f(rc0, 4)], ["média/ρ_cl em ξ = 0", show ? f(a0 / rc0, 3) : hid], ["média/ρ_cl em 0,8 x_cl", show ? f(a8 / rc8, 3) : hid], ["período de |ψₙ|² no centro (ℓ)", f(lam, 3)]]);
     set("conceptTitle", "Princípio da correspondência");
-    set("conceptText", "Para n ≫ 1, |ψₙ|² oscila com período π/√(2n+1) (número de onda local √(2ε − ξ²) em ξ = 0; ψ tem comprimento de onda 2π/√(2n+1)); a média sobre uma janela maior que esse período reproduz ρ_cl = 1/(π√(x_cl² − x²)), exceto nas vizinhanças de x_cl, onde a função de onda penetra suavemente a região proibida. No centro a razão vale 1 + sin(kw)/(kw), com k = √(2n+1) e w a largura da janela: a correspondência depende de n e de a janela cobrir um número inteiro de meios-períodos.");
+    set("conceptText", "Para n ≫ 1, |ψₙ|² oscila com período π/√(2n+1) (número de onda local √(2ε − ξ²) em ξ = 0; ψ tem comprimento de onda 2π/√(2n+1)); a média sobre uma janela maior que esse período reproduz ρ_cl = 1/(π√(x_cl² − x²)), exceto nas vizinhanças de x_cl, onde a função de onda penetra suavemente a região proibida. No centro a razão vale 1 + (−1)ⁿ sen(kw)/(kw), com k = √(2n+1) e w a largura da janela (1 + sen(kw)/(kw) para n par, 1 − sen(kw)/(kw) para n ímpar): a correspondência depende de n e de a janela cobrir um número inteiro de períodos de |ψₙ|² (kw múltiplo de π).");
     prompts(["Com largura 0, leia a razão média/ρ_cl em ξ = 0 para n = 20, 21 e 60: por que oscila tanto entre ~0 e ~2?", "Aumente a largura até ~1 ℓ com n = 20: as duas razões aproximam-se de 1? Onde a concordância é pior?", "Com n = 60, compare a razão no centro com largura 1,0 ℓ e 1,5 ℓ: quantas oscilações de |ψ₆₀|² cabem em cada janela (período π/√121 = 0,286 ℓ)? Qual largura dá a melhor razão e por quê?"]);
   }
 
@@ -169,22 +189,26 @@
     // Limites do modelo (parecer prof-fisica-medica): sigma_x/d > 10 % -> anarmonicidade forte;
     // hbar omega/k_BT < 5 -> P1/P0 > ~1 % e a linha anti-Stokes é mensurável.
     const ratioSd = sx / dBond, warnAnh = ratioSd > 0.10, warnT = hw / kT < 5;
-    const d = canvas();
-    const gap = 26, wl = Math.round((d.w - gap) * 0.64), boxL = { l: 62, r: wl, t: 24, b: d.h - 56 }, boxR = { l: wl + gap + 46, r: d.w - 16, t: 24, b: d.h - 56 };
-    // Poço parabólico em pm, níveis n = 0..3 e |ψ₀|² à escala da ligação.
-    const xmax = Math.max(4.5 * l, 0.55 * dBond), ymax = 4.5 * hw;
+    const narrow = window.innerWidth < 600 || ($("mainCanvas").clientWidth || 900) < 600;
+    const d = canvas(660), c = d.c;
+    // Largura < 600 px: poço em cima e população térmica embaixo (empilhados); senão lado a lado.
+    const gap = 26, wl = Math.round((d.w - gap) * 0.64);
+    const boxL = narrow ? { l: 62, r: d.w - 16, t: 44, b: 300 } : { l: 62, r: wl, t: 44, b: d.h - 56 };
+    const boxR = narrow ? { l: 62, r: d.w - 16, t: 372, b: 580 } : { l: wl + gap + 46, r: d.w - 16, t: 44, b: d.h - 56 };
+    // Zoom no poço: ±3,4ℓ (o ponto de retorno do nível n = 3 é 2,65ℓ); o comprimento da ligação d
+    // (≈ 23ℓ para C=O) não cabe nesse quadro e vai numa legenda, com marcas ±d/2 só se couber.
+    const xmax = niceMax(3.4 * l, 4), ymax = 4.5 * hw;
     const V = samples(-xmax, xmax, 401, (x) => P.potentialEV(x, l, hw));
     const psi0 = samples(-xmax, xmax, 601, (x) => { const xi = x / l; return 0.5 * hw + 1.6 * hw * P.density(0, xi) / P.density(0, 0); });
-    const levels = [0, 1, 2, 3].map((n) => { const E = hw * P.energy(n), xt = l * P.turningPoint(n); return { y: E, from: -xt, to: xt, color: C.green, label: `n = ${n}` }; });
-    const { X, Y } = plot(d.c, boxL, [{ points: V, color: C.gray, width: 2 }, { points: psi0, color: C.red, width: 2.2 }], [-xmax, xmax], [0, ymax], ["x (pm)", "energia (eV)"],
-      { hlines: levels, marks: [{ x: -sx, color: C.red, dash: [3, 3] }, { x: sx, color: C.red, dash: [3, 3], label: "±σ_x" }], nx: 4, ny: 4, xfmt: (x) => fi(x), yfmt: (y) => f(y, 2) });
-    // Barra do comprimento da ligação.
-    const c = d.c, yb = boxL.b - 14;
-    c.strokeStyle = C.purple; c.fillStyle = C.purple; c.lineWidth = 2;
-    c.beginPath(); c.moveTo(X(-dBond / 2), yb); c.lineTo(X(dBond / 2), yb); c.stroke();
-    [-1, 1].forEach((sg) => { c.beginPath(); c.moveTo(X(sg * dBond / 2), yb - 6); c.lineTo(X(sg * dBond / 2), yb + 6); c.stroke(); });
-    c.font = "10px Ubuntu,system-ui"; c.textAlign = "center"; c.fillText(`comprimento da ligação d = ${fi(dBond)} pm`, X(0), yb - 8);
-    c.fillStyle = C.red; c.fillText(`σ_x = ${f(sx, 1)} pm`, X(0), Y(0.5 * hw + 1.6 * hw) - 6);
+    const levels = [0, 1, 2, 3].map((n) => { const E = hw * P.energy(n), xt = l * P.turningPoint(n); return { y: E, from: -xt, to: xt, color: C.green, label: `n = ${n}`, edge: true }; });
+    const dIn = dBond / 2 <= xmax;
+    const marks = [{ x: -sx, color: C.red, dash: [3, 3] }, { x: sx, color: C.red, dash: [3, 3] }];
+    if (dIn) marks.push({ x: -dBond / 2, color: C.purple, dash: [6, 3] }, { x: dBond / 2, color: C.purple, dash: [6, 3] });
+    const { X, Y } = plot(c, boxL, [{ points: V, color: C.gray, width: 2 }, { points: psi0, color: C.red, width: 2.2 }], [-xmax, xmax], [0, ymax], ["x (pm)", "energia (eV)"],
+      { hlines: levels, marks, nx: 4, ny: 4 });
+    // Legendas do poço, acima do quadro (sem tocar curva, nível ou ψ₀).
+    c.font = "10px Ubuntu,system-ui"; c.fillStyle = C.purple; rich(c, `ligação d = ${fi(dBond)} pm = ${f(dBond / l, 0)} ℓ${dIn ? " (traços roxos: ±d/2)" : `: ±d/2 = ±${f(dBond / 2, 1)} pm${narrow ? " fora" : " fica fora do quadro"}`}`, boxL.l, boxL.t - 24, "left");
+    c.fillStyle = C.red; rich(c, `largura σ_x = ${f(sx, 1)} pm (traços vermelhos: ±σ_x)`, boxL.l, boxL.t - 10, "left");
     // Populações térmicas em escala log (só depois da previsão).
     const floor = -12, lbl = boxR, Yp = (p) => lbl.b - (Math.log10(Math.max(p, 1e-300)) - floor) / (0 - floor) * (lbl.b - lbl.t);
     c.strokeStyle = C.grid; c.fillStyle = C.gray; c.font = "10px Ubuntu,system-ui";
@@ -192,7 +216,7 @@
     c.strokeStyle = C.gray; c.beginPath(); c.moveTo(lbl.l, lbl.b); c.lineTo(lbl.r, lbl.b); c.moveTo(lbl.l, lbl.t); c.lineTo(lbl.l, lbl.b); c.stroke();
     const bw = (lbl.r - lbl.l) / 4;
     if (show) pops.forEach((p, n) => {
-      const x0 = lbl.l + n * bw + bw * 0.2, y = Yp(p);
+      const x0 = lbl.l + n * bw + bw * 0.2, y = Math.min(Yp(p), lbl.b);   // nunca abaixo do piso do eixo (10⁻¹²)
       c.fillStyle = n === 0 ? C.green : C.blue; c.fillRect(x0, y, bw * 0.6, lbl.b - y);
       c.fillStyle = C.gray; c.textAlign = "center"; c.fillText(`n = ${n}`, x0 + bw * 0.3, lbl.b + 15);
       const txt = p < 1e-12 ? "< 10⁻¹²" : (p > 0.01 ? f(p, 3) : sci(p));
@@ -206,7 +230,7 @@
     set("statusTitle", `${P.PAIRS[pair].label}`); set("statusDetail", show ? `ħω = ${f(hw, 3)} eV · P₁/P₀ = ${sci(ratio)}` : `ħω = ${f(hw, 3)} eV · P₁/P₀ após a previsão`);
     set("mainTitle", "Vibração de uma ligação como oscilador harmônico"); set("mainSubtitle", show ? "esquerda: poço em pm com os quatro primeiros níveis; direita: população de Boltzmann (escala log)" : "escreva a previsão e mova o controle: a população térmica aparece depois");
     set("caption", warnAnh
-      ? `σ_x/d = ${f(100 * ratioSd, 0)} %: o núcleo já explora a região onde V(x) não é parabólico — a expansão em 2ª ordem não se justifica bem (anarmonicidade forte; para H₂, ω_e x_e/ω_e = 2,8 %, e a linha medida 0 → 1 fica em 4159 cm⁻¹, 5,8 % abaixo de ω_e = 4401). |ψ₀|² está deslocada até E₀ só para leitura; o eixo vertical não vale para ela.`
+      ? `σ_x/d = ${f(100 * ratioSd, 0)} %: o núcleo já explora a região onde V(x) não é parabólico — a expansão em 2ª ordem não se justifica bem (anarmonicidade forte; para H₂, ω_e x_e/ω_e = 2,8 %, e a linha medida 0 → 1 fica em 4159 cm⁻¹, ${f(100 * (4401 - 4159) / 4401, 1)} % abaixo de ω_e = 4401). |ψ₀|² está deslocada até E₀ só para leitura; o eixo vertical não vale para ela.`
       : `σ_x/d = ${f(100 * ratioSd, 1)} %: o poço parabólico ocupa só uma fração minúscula do comprimento da ligação — o núcleo mal sai do fundo, o que justifica truncar V(x) na segunda ordem. |ψ₀|² está deslocada até E₀ só para leitura; o eixo vertical não vale para ela. A barra de n = 1 mostra quantas ligações poderiam emitir uma linha anti-Stokes.`);
     set("prediction", "A 37 °C, que fração das ligações C=O está no primeiro estado excitado: ~30 %, ~3 % ou menos de 0,1 %?");
     html("calculation", `ħω = hcν̃ = 1239,84 eV·nm × ${fi(nu)} × 10⁻⁷ nm⁻¹ = ${f(hw, 3)} eV<br>ℓ = ħc/√(μc²·ħω) = 197,3 eV·nm/√(${f(mu * P.U_C2_EV / 1e9, 2)}×10⁹ × ${f(hw, 3)}) eV = ${f(l, 1)} pm<br><b>P₁/P₀ = e^{−ħω/k_BT} = e^{−${f(hw, 3)}/${f(kT, 4)}} = ${show ? sci(ratio) : hid}</b><small>σ_x = ℓ/√2 = ${f(sx, 1)} pm = ${f(100 * ratioSd, 1)} % de d = ${fi(dBond)} pm · ħω/k_BT = ${f(hw / kT, 1)}</small>`);
@@ -229,6 +253,8 @@
     render();
   }
   const DEFAULTS = { tiro: { tiroEps: 0.5, tiroParity: "par" }, hermite: { hermN: 0 }, classico: { clasN: 20, clasW: 0 }, medica: { medNu: 1700, medPair: "C=O", medT: 310 } };
+  // Controles pela URL (?medNu=1655&view=medica), para links das notas e reprodução.
+  new URLSearchParams(location.search).forEach((value, key) => { const el = $(key); if (el && key !== "view" && (el.tagName === "INPUT" || el.tagName === "SELECT") && (el.tagName === "SELECT" || Number.isFinite(+value))) el.value = value; });
   document.querySelectorAll("[data-view]").forEach((b) => b.addEventListener("click", () => switchView(b.dataset.view)));
   document.querySelectorAll("input, select").forEach((e) => e.addEventListener("input", () => { if (view in revealed) revealed[view] = true; render(); }));
   [["clasShow", "classico"], ["medShow", "medica"]].forEach(([id, v]) => $(id).addEventListener("click", () => { revealed[v] = true; render(); }));

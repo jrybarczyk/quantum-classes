@@ -37,6 +37,9 @@ h1 { margin: 0; font-size: clamp(2rem, 3.4vw, 3.4rem); line-height: .98; letter-
 .panel-title, .chart-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .panel-title { padding-bottom: 12px; border-bottom: 1px solid var(--line); }
 h2 { margin: 0; color: var(--gray); font-size: .74rem; letter-spacing: .12em; text-transform: uppercase; }
+/* Títulos de gráfico levam símbolos (ψ, γ, ω, k, n): a caixa alta os trocaria por Ψ, Γ, Ω, K, N.
+   Títulos de seção ("Conta aberta", "Leituras") continuam em caixa alta; .sym protege um símbolo isolado. */
+.chart-heading h2, .sym { text-transform: none; }
 #resetBtn { padding: 5px 8px; border: 1px solid var(--line); border-radius: 5px; background: #fff; color: var(--muted); font-size: .7rem; cursor: pointer; }
 .view-controls { display: none; }
 .view-controls.active { display: block; }
@@ -71,6 +74,7 @@ dl { margin: 8px 0; }
 dl div { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px dashed var(--line); }
 dt, dd, ol { font-size: .69rem; }
 dd { margin: 0; color: var(--dark); font-weight: 700; text-align: right; }
+#conceptText { margin: 6px 0 0; color: var(--muted); font-size: .72rem; line-height: 1.45; }
 ol { padding-left: 19px; color: var(--muted); line-height: 1.45; }
 ol li + li { margin-top: 6px; }
 footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 18px; padding: 13px 4px; color: var(--gray); font-size: .63rem; line-height: 1.4; }

@@ -7,10 +7,18 @@
   // A "Ideia física" (frase conclusiva) só aparece depois do primeiro movimento
   // de controle em cada estação, para não responder a previsão antes do aluno.
   const touched = { grafica: false, autofuncoes: false, limite: false, cdse: false };
-  const f = (x, n = 3) => Number(x).toLocaleString("pt-BR", { maximumFractionDigits: n, minimumFractionDigits: n }).replace("-", "−");
+  // pt-BR, sem separador de milhar, sem "−0" e com o sinal tipográfico "−".
+  const f = (x, n = 3) => { let t = Number(x).toLocaleString("pt-BR", { maximumFractionDigits: n, minimumFractionDigits: n, useGrouping: false }); if (/^-0(,0*)?$/.test(t)) t = t.slice(1); return t.replace("-", "−"); };
+  // Marcas de eixo bonitas (P.niceTicks) com rótulo de casas coerentes com o passo.
+  function tickList(min, max, target) { const { step, ticks } = P.niceTicks(min, max, target), dec = P.tickDecimals(step); return ticks.map((v) => ({ v, l: f(v, dec) })); }
+  function niceMax(v, target = 5) { const { step } = P.niceTicks(0, v, target); return Math.ceil(v / step - 1e-9) * step; }
   const sub = (n) => String(n).replace(/\d/g, (d) => "₀₁₂₃₄₅₆₇₈₉"[d]);
   const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
-  function set(id, text) { $(id).textContent = text; } function html(id, content) { $(id).innerHTML = content; }
+  // Micro-marcação das strings da tela: X_y e X_{yz} viram subscrito; ^{...} sobrescrito (sem TeX cru).
+  const MARK = /_\{([^}]*)\}|_([A-Za-z0-9\u00C0-\u00FF]+)|\^\{([^}]*)\}/g;
+  const markup = (t) => String(t).replace(MARK, (m, a, b, c) => (c !== undefined ? `<sup>${c}</sup>` : `<sub>${a ?? b}</sub>`));
+  const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  function set(id, text) { $(id).innerHTML = markup(esc(text)); } function html(id, content) { $(id).innerHTML = markup(content); }
   function metrics(rows) { html("metrics", rows.map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join("")); }
   function prompts(rows) { html("prompts", rows.map((x) => `<li>${x}</li>`).join("")); }
   function legend(rows) { html("legend", rows.map(([color, label]) => `<span><i style="border-color:${color}"></i>${label}</span>`).join("")); }
@@ -20,7 +28,7 @@
     set("conceptTitle", ready ? title : "Ideia física (após a previsão)");
     set("conceptText", ready ? text : "Escreva a previsão no roteiro e mova o controle: a ideia física desta estação aparece depois do primeiro movimento.");
   }
-  function canvas() { const e = $("mainCanvas"), ratio = Math.max(1, Math.min(2, devicePixelRatio || 1)), w = e.clientWidth || 900, h = w * 590 / 1100; e.width = w * ratio; e.height = h * ratio; const c = e.getContext("2d"); c.scale(ratio, ratio); c.clearRect(0, 0, w, h); return { c, w, h }; }
+  function canvas() { const e = $("mainCanvas"), ratio = Math.max(1, Math.min(2, devicePixelRatio || 1)), w = e.clientWidth || 900, h = Math.max(w * 590 / 1100, w < 600 ? 330 : 0); e.height = h * ratio; e.width = w * ratio; const c = e.getContext("2d"); c.scale(ratio, ratio); c.clearRect(0, 0, w, h); return { c, w, h }; }
   function samples(a, b, n, fn) { return Array.from({ length: n }, (_, i) => { const x = a + i * (b - a) / (n - 1); return { x, y: fn(x) }; }); }
 
   // Eixos com grade; series: [{points, color, dash, width}] (y = NaN quebra a curva);
@@ -30,14 +38,19 @@
     const X = (x) => l + (x - xmin) * (r - l) / (xmax - xmin), Y = (y) => b - (y - ymin) * (b - t) / (ymax - ymin);
     (opt.shades || []).forEach((s) => { c.fillStyle = s.color || C.shade; c.fillRect(X(s.x0), t, X(s.x1) - X(s.x0), b - t); });
     c.strokeStyle = C.grid; c.lineWidth = 1; c.fillStyle = C.gray; c.font = "10px Ubuntu,system-ui";
-    const nx = opt.xticks || 5, ny = opt.yticks || 5;
-    for (let i = 0; i <= nx; i += 1) { const x = xmin + i * (xmax - xmin) / nx; c.beginPath(); c.moveTo(X(x), t); c.lineTo(X(x), b); c.stroke(); c.textAlign = "center"; c.fillText(opt.xfmt ? opt.xfmt(x) : f(x, 2), X(x), b + 16); }
-    for (let i = 0; i <= ny; i += 1) { const y = ymin + i * (ymax - ymin) / ny; c.beginPath(); c.moveTo(l, Y(y)); c.lineTo(r, Y(y)); c.stroke(); c.textAlign = "right"; c.fillText(f(y, 2), l - 7, Y(y) + 3); }
+    // opt.xt / opt.yt: lista explícita [{v, l}]; senão marcas redondas (niceTicks), com 0 incluído.
+    const xt = opt.xt || tickList(xmin, xmax, opt.xticks || 6), yt = opt.yt || tickList(ymin, ymax, opt.yticks || 5);
+    xt.forEach((k) => { c.beginPath(); c.moveTo(X(k.v), t); c.lineTo(X(k.v), b); c.stroke(); if (k.l) { c.textAlign = "center"; c.fillText(k.l, X(k.v), b + 16); } });
+    yt.forEach((k) => { c.beginPath(); c.moveTo(l, Y(k.v)); c.lineTo(r, Y(k.v)); c.stroke(); c.textAlign = "right"; c.fillText(k.l, l - 7, Y(k.v) + 3); });
     (opt.marks || []).forEach((m) => {
       c.strokeStyle = m.color || C.gray; c.lineWidth = m.width || 1.2; c.setLineDash(m.dash || [4, 4]); c.beginPath();
       if (m.x !== undefined) { c.moveTo(X(m.x), t); c.lineTo(X(m.x), b); } else { c.moveTo(l, Y(m.y)); c.lineTo(r, Y(m.y)); }
       c.stroke(); c.setLineDash([]);
-      if (m.label) { c.fillStyle = m.color || C.gray; c.font = "10px Ubuntu,system-ui"; c.textAlign = "left"; if (m.x !== undefined) c.fillText(m.label, X(m.x) + 4, t + 11); else c.fillText(m.label, l + 4, Y(m.y) - 4); }
+      if (m.label) {
+        c.fillStyle = m.color || C.gray; c.font = "10px Ubuntu,system-ui";
+        if (m.x !== undefined) { const fits = X(m.x) + 6 + c.measureText(m.label).width < r; c.textAlign = fits ? "left" : "right"; c.fillText(m.label, X(m.x) + (fits ? 4 : -4), m.bottom ? b - 6 : t + 11); }
+        else { c.textAlign = "left"; c.fillText(m.label, l + 4, Y(m.y) - 4); }
+      }
     });
     c.strokeStyle = C.gray; c.lineWidth = 1; c.beginPath(); c.moveTo(l, b); c.lineTo(r, b); c.moveTo(l, t); c.lineTo(l, b); c.stroke();
     c.fillStyle = C.gray; c.font = "11px Ubuntu,system-ui"; c.textAlign = "center"; c.fillText(opt.xlabel, (l + r) / 2, h - 10);
@@ -48,8 +61,10 @@
       s.points.forEach((p) => { if (!Number.isFinite(p.y)) { pen = false; return; } if (pen) c.lineTo(X(p.x), Y(p.y)); else c.moveTo(X(p.x), Y(p.y)); pen = true; });
       c.stroke(); c.setLineDash([]);
     });
-    (opt.dots || []).forEach((d) => { c.fillStyle = d.color; c.beginPath(); c.arc(X(d.x), Y(d.y), d.r || 5, 0, 2 * Math.PI); c.fill(); if (d.label) { c.font = "bold 10px Ubuntu,system-ui"; c.textAlign = "center"; c.fillText(d.label, X(d.x), Y(d.y) - 9); } });
+    (opt.dots || []).forEach((d) => { c.fillStyle = d.color; c.beginPath(); c.arc(X(d.x), Y(d.y), d.r || 5, 0, 2 * Math.PI); c.fill(); });
     c.restore();
+    // rótulos dos pontos fora do recorte; abaixo do ponto quando não cabem acima
+    (opt.dots || []).forEach((d) => { if (d.label && d.y >= ymin && d.y <= ymax) { c.fillStyle = d.color; c.font = "bold 10px Ubuntu,system-ui"; c.textAlign = "center"; const up = Y(d.y) - 10 > t + 8; c.fillText(d.label, X(d.x) + (up ? 0 : 11), up ? Y(d.y) - 10 : Y(d.y) + 4); } });
     return { X, Y, l, r, t, b };
   }
 
@@ -65,12 +80,17 @@
     for (let j = 0; j < branches; j += 1) {
       const lo = j * P.HALF_PI, hi = (j + 1) * P.HALF_PI, even = j % 2 === 0;
       series.push({ points: samples(lo + 1e-4, hi - 1e-4, 220, (z) => { const y = even ? Math.tan(z) : -1 / Math.tan(z); return y >= 0 && y <= ymax * 1.2 ? y : NaN; }), color: even ? C.blue : C.purple, dash: even ? [] : [7, 4], width: 2 });
-      if (j > 0) marks.push({ x: lo, color: C.gray, dash: [2, 5], label: j === 1 ? "π/2" : `${j}π/2` });
-    }
+      }
+    // Marcas do eixo z: múltiplos de π/2 (π/2, π, 3π/2, 2π, 5π/2, ...); abaixo de xmax = 4 também as marcas redondas.
+    const piLab = (j) => (j === 0 ? "0" : j % 2 === 0 ? (j === 2 ? "π" : `${j / 2}π`) : j === 1 ? "π/2" : `${j}π/2`);
+    const xt = [];
+    for (let j = 0; j * P.HALF_PI <= xmax + 1e-9; j += 1) xt.push({ v: j * P.HALF_PI, l: piLab(j) });
+    if (xmax < 4) tickList(0, xmax, 5).forEach((k) => { if (!xt.some((q) => Math.abs(q.v - k.v) < 0.22)) xt.push(k); });
+    xt.sort((p, q) => p.v - q.v);
     series.push({ points: samples(1e-3, z0 - 1e-6, 400, (z) => { const y = P.rhsZ(z, z0); return y <= ymax * 1.2 ? y : NaN; }), color: C.red, width: 2.8 });
-    marks.push({ x: z0, color: C.gold, dash: [], width: 2, label: "z₀" });
+    marks.push({ x: z0, color: C.gold, dash: [], width: 2, label: `z₀ = ${f(z0, 2)}` });
     const dots = roots.map((r) => ({ x: r.z, y: r.parity === "par" ? Math.tan(r.z) : -1 / Math.tan(r.z), color: C.gold, r: 6, label: `z${sub(r.n)}` }));
-    plot(d.c, d.w, d.h, { xmin: 0, xmax, ymin: 0, ymax, xlabel: "z = ka", ylabel: "tan z, −cot z, √(z₀²/z² − 1)", series, marks, dots });
+    plot(d.c, d.w, d.h, { xmin: 0, xmax, ymin: 0, ymax, xt, xlabel: "z = ka", ylabel: "tan z, −cot z, √(z₀²/z² − 1)", series, marks, dots });
     legend([[C.blue, "tan z (par)"], [C.purple, "−cot z (ímpar, tracejado)"], [C.red, "√(z₀²/z² − 1)"], [C.gold, "interseções zₙ"]]);
     set("grafZ0Out", f(z0, 2));
     set("statusTitle", ready ? `${N} estado${N > 1 ? "s" : ""} ligado${N > 1 ? "s" : ""}` : "mova z₀ para contar os estados"); set("statusDetail", `z₀ = ${f(z0, 2)}`);
@@ -95,21 +115,22 @@
     // Janela adaptativa: ±3a mostrava só 39,7 % da densidade em z₀ = 0,3 (d_p = 11,7a).
     const xmax = Math.min(15, Math.max(3, 2 + 2 / ka)), frac = P.probabilityInWindow(r, z0, xmax), reach = 1 + 1 / ka, reachInside = reach <= xmax;
     const psi = samples(-xmax, xmax, 800, (x) => P.wavefunctionRoot(x, r, z0)), dens = samples(-xmax, xmax, 800, (x) => P.wavefunctionRoot(x, r, z0) ** 2);
-    const amp = Math.max(1.05, Math.sqrt(A2) * 1.15), d = canvas();
+    const peakPsi = Math.max(...psi.map((p) => Math.abs(p.y))), peakDens = Math.max(...dens.map((p) => p.y));
+    const amp = niceMax(Math.max(0.3, peakPsi, peakDens) * 1.12, 5), d = canvas();
     const marks = [{ y: 0, color: C.gray, dash: [] }, { x: -1, color: C.green, dash: [], width: 2 }, { x: 1, color: C.green, dash: [], width: 2, label: "x = a" }];
-    if (reachInside) marks.push({ x: reach, color: C.gold, dash: [3, 4], label: "a + 1/κ" });
-    plot(d.c, d.w, d.h, { xmin: -xmax, xmax, ymin: -amp, ymax: amp, xticks: 6, xlabel: "x / a", ylabel: "ψ √a,  |ψ|² a",
+    if (reachInside) marks.push({ x: reach, color: C.gold, dash: [3, 4], label: "a + 1/κ", bottom: true });
+    plot(d.c, d.w, d.h, { xmin: -xmax, xmax, ymin: -amp, ymax: amp, xticks: 6, yticks: 4, xlabel: "x / a", ylabel: "ψ √a,  |ψ|² a",
       shades: [{ x0: -xmax, x1: -1 }, { x0: 1, x1: xmax }], marks,
       series: [{ points: dens, color: C.gold, dash: [6, 4], width: 1.8 }, { points: psi, color: r.parity === "par" ? C.blue : C.purple }] });
     legend([[r.parity === "par" ? C.blue : C.purple, `ψ${sub(n)}(x) (${r.parity === "par" ? "par" : "ímpar"})`], [C.gold, "|ψ|²"], [C.green, "bordas do poço ±a"], [C.gray, "região proibida"]]);
     set("autoZ0Out", f(z0, 2)); set("autoNOut", `${n} de ${N}`);
     set("statusTitle", `ψ${sub(n)}: ${r.parity === "par" ? "par" : "ímpar"}`); set("statusDetail", `z₀ = ${f(z0, 2)} · P_fora = ${f(100 * pf, 1)} %`);
-    set("mainTitle", `Autofunção normalizada ψ${sub(n)}(x) sobre o poço`); set("mainSubtitle", "dentro: cos(kx) ou sen(kx); fora: cauda e^(−κ(|x|−a)), região sombreada");
-    set("caption", `Eixo x em unidades de a; eixo y: ψ√a (linha cheia) e |ψ|²a (dourado tracejado). Verde: bordas ±a; sombreado: região classicamente proibida. ${reachInside ? "Linha dourada vertical: a + 1/κ, um alcance d_p além da borda." : `a + 1/κ = ${f(reach, 1)} a (fora da janela).`} A janela ±${f(xmax, 1)} a mostra ${f(100 * frac, 1)} % da probabilidade.`);
+    set("mainTitle", `Autofunção normalizada ψ${sub(n)}(x) sobre o poço`); set("mainSubtitle", "dentro: cos(kx) ou sen(kx); fora: cauda e^{−κ(|x|−a)}, região sombreada");
+    html("caption", `Eixo x em unidades de a; eixo y: ψ√a (linha cheia) e |ψ|²a (dourado tracejado). Verde: bordas ±a; sombreado: região classicamente proibida. ${reachInside ? "Linha dourada vertical: a + 1/κ, um alcance d<sub>p</sub> além da borda." : `a + 1/κ = ${f(reach, 1)} a (fora da janela).`} A janela ±${f(xmax, 1)} a mostra ${f(100 * frac, 1)} % da probabilidade.`);
     set("prediction", "P_fora cresce ou diminui quando E se aproxima de zero (estado mais alto do poço)? E o estado fundamental de um poço raso (z₀ = 0,3): fica mais dentro ou mais fora?");
     html("calculation", `κa = √(z₀² − zₙ²) = √(${f(z0 ** 2, 3)} − ${f(r.z ** 2, 3)}) = ${f(ka, 3)} → d_p/a = 1/κa = ${f(1 / ka, 3)}<br><b>A${r.parity === "par" ? "₊" : "₋"}⁻²/a = 1 ${r.parity === "par" ? "+" : "−"} sen(2z)/(2z) + ${r.parity === "par" ? "cos²z" : "sen²z"}/κa = ${f(1 / A2, 3)}</b><br>P_fora = A² ${r.parity === "par" ? "cos²(ka)" : "sen²(ka)"}/κ = ${f(A2, 3)} × ${f(r.parity === "par" ? Math.cos(r.z) ** 2 : Math.sin(r.z) ** 2, 3)} / ${f(ka, 3)} = ${f(pf, 3)}<br>forma fechada (Griffiths 2.30): A⁻²/a = 1 + 1/κa = ${f(P.normalizationClosed(r.z, z0) ** -1, 3)};  P_fora = (z²/z₀²)/(1 + κa) = ${f(en.aboveBottom, 3)}/${f(1 + ka, 3)} = ${f(P.outsideProbabilityClosed(r.z, z0), 3)}`);
     metrics([["zₙ = kₙa", f(r.z, 3)], ["(Eₙ + V₀)/V₀", f(en.aboveBottom, 3)], ["κa", f(ka, 3)], ["d_p/a = 1/κa", f(1 / ka, 3)], ["P_fora", `${f(100 * pf, 1)} %`], ["paridade", r.parity === "par" ? "par (cos)" : "ímpar (sen)"]]);
-    concept("Penetração na região proibida", "Fora do poço a energia cinética seria negativa, mas ψ não se anula: decai como e^(−κ|x|) com alcance d_p = 1/κ. Quanto mais perto do topo (E → 0⁻), menor κ, mais longa a cauda e maior P_fora. \"Ligado\" quer dizer E < 0 e ψ normalizável — nada obriga a partícula a estar em |x| < a. Essa cauda é o que distingue o poço finito do infinito e o que, na Aula 7, virou tunelamento.");
+    concept("Penetração na região proibida", "Fora do poço a energia cinética seria negativa, mas ψ não se anula: decai como e^{−κ|x|} com alcance d_p = 1/κ. Quanto mais perto do topo (E → 0⁻), menor κ, mais longa a cauda e maior P_fora. \"Ligado\" quer dizer E < 0 e ψ normalizável — nada obriga a partícula a estar em |x| < a. Essa cauda é o que distingue o poço finito do infinito e o que, na Aula 7, virou tunelamento.");
     prompts(["Fixe z₀ = 8 e suba n de 1 a 6: anote P_fora e d_p/a a cada nível.", "Volte a n = 1 e reduza z₀ até 0,3: quanto da partícula fica fora do poço? Compare com o estado mais alto de z₀ = 8.", "Conte na curva os nós de cada ψₙ dentro do poço (a tela não os conta) e relacione com a paridade (cos ou sen)."]);
   }
 
@@ -117,8 +138,10 @@
   function drawLimite() {
     const z0 = +$("limZ0").value, roots = P.rootsZ(z0), N = roots.length;
     const finite = roots.map((r) => ({ x: r.n, y: r.z ** 2 })), inf = roots.map((r) => ({ x: r.n, y: P.infiniteWellZ(r.n) ** 2 }));
-    const ymax = Math.max(P.infiniteWellZ(N) ** 2 * 1.05, 3), d = canvas();
-    plot(d.c, d.w, d.h, { xmin: 0, xmax: N + 1, ymin: 0, ymax, xticks: Math.min(N + 1, 7), xfmt: (x) => f(x, 0), xlabel: "n", ylabel: "zₙ² = 2ma²(Eₙ + V₀)/ħ²",
+    const ymax = niceMax(Math.max(P.infiniteWellZ(N) ** 2 * 1.05, z0 * z0 * 1.05, 3), 5), d = canvas();
+    // eixo n: só inteiros (passo 1, 2, 5, ...), nunca fracionário arredondado
+    const nStep = N <= 7 ? 1 : P.niceTicks(0, N, 6).step, xt = []; for (let k = nStep === 1 ? 1 : nStep; k <= N; k += nStep) xt.push({ v: k, l: String(k) });
+    plot(d.c, d.w, d.h, { xmin: 0, xmax: N + 1, ymin: 0, ymax, xt, xlabel: "n", ylabel: "zₙ² = 2ma²(Eₙ + V₀)/ħ²",
       marks: [{ y: z0 ** 2, color: C.red, dash: [5, 4], label: "z₀² (topo do poço)" }],
       series: [{ points: inf, color: C.gray, dash: [5, 4], width: 1.6 }, { points: finite, color: C.green, width: 1.6 }],
       dots: [...inf.map((p) => ({ ...p, color: C.gray, r: 4 })), ...finite.map((p) => ({ ...p, color: C.green, r: 5 }))] });
@@ -161,7 +184,7 @@
     const wellPts = [{ x: -xmax, y: 0 }, { x: -a, y: 0 }, { x: -a, y: -V0 }, { x: a, y: -V0 }, { x: a, y: 0 }, { x: xmax, y: 0 }];
     const levelSeries = dot.levels.map((lv) => ({ points: [{ x: -a, y: lv.energyEV }, { x: a, y: lv.energyEV }], color: lv.parity === "par" ? C.blue : C.purple, dash: lv.parity === "par" ? [] : [7, 4], width: 2.2 }));
     levelSeries.push({ points: [{ x: -a, y: inf - V0 }, { x: a, y: inf - V0 }], color: C.gray, dash: [5, 4], width: 1.6 });
-    const g = plot(d.c, d.w, d.h, { xmin: -xmax, xmax, ymin, ymax, xticks: 6, xlabel: "x (nm)", ylabel: "E (eV)", shades: [{ x0: -xmax, x1: -a }, { x0: a, x1: xmax }],
+    const g = plot(d.c, d.w, d.h, { xmin: -xmax, xmax, ymin, ymax, xticks: 6, yticks: 5, xlabel: "x (nm)", ylabel: "E (eV)", shades: [{ x0: -xmax, x1: -a }, { x0: a, x1: xmax }],
       marks: [{ y: 0, color: C.gray, dash: [] }], series: [{ points: wellPts, color: C.green, width: 2.6 }, ...levelSeries] });
     const c = d.c;
     // Seta vertical do fundo (−V₀) até E₁, rotulada E₁ + V₀: a energia de confinamento.
@@ -169,10 +192,20 @@
     c.strokeStyle = C.red; c.fillStyle = C.red; c.lineWidth = 1.8; c.beginPath(); c.moveTo(ax, y0); c.lineTo(ax, y1); c.stroke();
     c.beginPath(); c.moveTo(ax, y1); c.lineTo(ax - 4, y1 + 7); c.lineTo(ax + 4, y1 + 7); c.closePath(); c.fill();
     c.beginPath(); c.moveTo(ax - 5, y0); c.lineTo(ax + 5, y0); c.stroke();
-    c.font = "bold 10px Ubuntu,system-ui"; c.textAlign = "left"; c.fillText(`E₁ + V₀ = ${f(E1, 3)} eV`, ax + 6, (y0 + y1) / 2 + 4);
-    if (!noState) { c.fillStyle = rgbFromLambda(lam); c.fillRect(g.r - 150, g.t + 8, 140, 26); c.fillStyle = "#26312d"; c.font = "bold 11px Ubuntu,system-ui"; c.textAlign = "center"; c.fillText(`λ ≈ ${f(lam, 0)} nm (${modelName})`, g.r - 80, g.t + 25); }
+    { // rótulo sobre um fundo claro, para ficar legível por cima das linhas de nível
+      const txt = `E₁ + V₀ = ${f(E1, 3)} eV`; c.font = "bold 10px Ubuntu,system-ui"; const tw = c.measureText(txt).width, ty = (y0 + y1) / 2 + 4;
+      c.fillStyle = "rgba(251,252,250,.92)"; c.fillRect(ax + 4, ty - 10, tw + 6, 14); c.fillStyle = C.red; c.textAlign = "left"; c.fillText(txt, ax + 7, ty);
+    }
+    if (!noState) { // caixa com a largura do texto: faixa de cor + texto escuro sobre fundo claro (contraste)
+      const narrow = d.w < 600, txt = narrow ? `λ ≈ ${f(lam, 0)} nm` : `λ ≈ ${f(lam, 0)} nm (${modelName})`;
+      c.font = "bold 11px Ubuntu,system-ui"; const tw = c.measureText(txt).width, bw = tw + 30, bx = g.r - bw - 8;
+      c.fillStyle = "rgba(251,252,250,.95)"; c.fillRect(bx, g.t + 6, bw, 24); c.fillStyle = rgbFromLambda(lam); c.fillRect(bx, g.t + 6, 14, 24);
+      c.strokeStyle = C.gray; c.lineWidth = 1; c.strokeRect(bx, g.t + 6, bw, 24); c.fillStyle = "#26312d"; c.textAlign = "left"; c.fillText(txt, bx + 20, g.t + 22);
+    }
     else { c.fillStyle = C.gray; c.font = "bold 11px Ubuntu,system-ui"; c.textAlign = "right"; c.fillText("esfera: sem estado ligado (z₀ < π/2)", g.r - 10, g.t + 25); }
-    c.fillStyle = C.gray; c.font = "10px Ubuntu,system-ui"; c.textAlign = "left"; dot.levels.forEach((lv) => c.fillText(`E${sub(lv.n)}`, g.X(a) + 4, g.Y(lv.energyEV) + 3)); c.fillText("infinito", g.X(a) + 4, g.Y(inf - V0) + 3);
+    c.fillStyle = C.gray; c.font = "10px Ubuntu,system-ui"; c.textAlign = "left"; dot.levels.filter((lv) => lv.n <= 4).forEach((lv) => c.fillText(`E${sub(lv.n)}`, g.X(a) + 4, g.Y(lv.energyEV) + 3));
+    if (N > 4) c.fillText(`… E${sub(N)}`, g.X(a) + 4, g.Y(dot.levels[N - 1].energyEV) + 3);
+    c.textAlign = "right"; c.fillText(d.w < 600 ? "E₁ inf." : "E₁ (infinito)", g.X(-a) - 4, g.Y(inf - V0) + 3);
     legend([[C.green, "poço V(x)"], [C.blue, "níveis pares"], [C.purple, "níveis ímpares (tracejado)"], [C.gray, "E₁ do poço infinito"], [C.red, "E₁ + V₀ (do fundo)"]]);
     set("cdseDOut", `${f(D, 1)} nm`); set("cdseV0Out", `${f(V0, 2)} eV`);
     set("statusTitle", noState ? "esfera sem estado ligado" : `λ ≈ ${f(lam, 0)} nm (${color} ${modelWhere})`); set("statusDetail", `z₀ = ${f(dot.z0, 2)} · ${N} estado${N > 1 ? "s" : ""} (1D)`);
@@ -200,9 +233,11 @@
     render();
   }
   const defaults = { grafica: { grafZ0: 2 }, autofuncoes: { autoZ0: 2, autoN: 1 }, limite: { limZ0: 8 }, cdse: { cdseD: 4, cdseV0: 1 } };
+  // Controles pela URL (?grafZ0=3&view=grafica), para links das notas e reprodução.
+  new URLSearchParams(location.search).forEach((value, key) => { const el = $(key); if (!el || key === "view") return; if (el.type === "checkbox") el.checked = value === "1" || value === "true"; else if (el.tagName === "INPUT" && Number.isFinite(+value)) el.value = value; });
   document.querySelectorAll("[data-view]").forEach((b) => b.addEventListener("click", () => switchView(b.dataset.view)));
   document.querySelectorAll("input").forEach((e) => e.addEventListener("input", () => { touched[view] = true; render(); }));
-  $("resetBtn").addEventListener("click", () => { Object.entries(defaults[view]).forEach(([id, v]) => { $(id).value = v; }); if (view === "cdse") { $("cdseHole").checked = false; $("cdseSphere").checked = false; } render(); });
+  $("resetBtn").addEventListener("click", () => { Object.entries(defaults[view]).forEach(([id, v]) => { $(id).value = v; }); if (view === "cdse") { $("cdseHole").checked = false; $("cdseSphere").checked = false; } touched[view] = false; render(); });
   window.addEventListener("resize", render);
   switchView(view);
 })();

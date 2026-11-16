@@ -189,7 +189,19 @@
     return "infravermelho";
   }
 
+
+  // Marcas "bonitas" de eixo (passos 1, 2, 5 × 10^k), com 0 e valores redondos;
+  // casas decimais do rótulo = tickDecimals(step). Extensão didática (não está na nota).
+  function niceTicks(min, max, target = 5) {
+    const span = max - min, raw = span / Math.max(1, target), p = 10 ** Math.floor(Math.log10(raw)), f = raw / p;
+    const step = (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * p, out = [];
+    for (let v = Math.ceil(min / step - 1e-9) * step; v <= max + step * 1e-9; v += step) out.push(Math.abs(v) < step * 1e-9 ? 0 : Number(v.toFixed(12)));
+    return { step, ticks: out };
+  }
+  function tickDecimals(step) { return Math.max(0, -Math.floor(Math.log10(step) + 1e-9)); }
+
   return {
+    niceTicks, tickDecimals,
     HALF_PI, rhsZ, countBoundStates, rootsZ, energyFromZ, kappaA, normalization,
     outsideProbability, normalizationClosed, outsideProbabilityClosed, probabilityInWindow,
     wavefunction, wavefunctionRoot, nodeCount, infiniteWellZ,

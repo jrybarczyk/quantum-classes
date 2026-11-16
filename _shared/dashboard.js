@@ -18,9 +18,26 @@
   let uncertaintyKind = "gaussian";
   let momentumCache = { key: "", values: [] };
 
-  const fmt = (value, digits = 3) => Number(value).toLocaleString("pt-BR", { maximumFractionDigits: digits, minimumFractionDigits: digits });
+  // Formatação e marcas de eixo vêm de physics.js (testadas em node); o fallback mantém o
+  // motor utilizável com um physics.js sem esses auxiliares.
+  const fmt = P.formatNumber || ((value, digits = 3) => {
+    let n = Number(value);
+    if (!Number.isFinite(n)) return "—";
+    if (Math.abs(n) < 0.5 * 10 ** -digits) n = 0;
+    return n.toLocaleString("pt-BR", { maximumFractionDigits: digits, minimumFractionDigits: digits, useGrouping: false }).replace(/-/g, "−");
+  });
+  const niceTicks = P.niceTicks || ((min, max, target = 5) => {
+    const span = max - min, raw = span / Math.max(1, target), p = 10 ** Math.floor(Math.log10(raw)), f = raw / p;
+    const step = (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * p, ticks = [];
+    for (let i = Math.ceil(min / step - 1e-9); i <= Math.floor(max / step + 1e-9); i += 1) ticks.push(Math.abs(i * step) < step * 1e-9 ? 0 : Number((i * step).toFixed(12)));
+    return { step, ticks, digits: Math.max(0, -Math.floor(Math.log10(step) + 1e-9)) };
+  });
+  const sci = (value, digits = 1) => P.formatScientific ? P.formatScientific(value, digits) : Number(value).toExponential(digits).replace(".", ",");
   const active = id => $(`${view}-${id}`) || document.querySelector(`[data-controls="${view}"] #${id}`) || $(id);
-  const value = id => { const input = active(id); return input ? Number(input.value) : 0; };
+  // Durante a animação o tempo vive em `playTime` (float): reler o slider devolveria o valor
+  // arredondado ao passo e congelaria a animação em telas de 120/144 Hz.
+  let playTime = null;
+  const value = id => { if (id === "tertiary" && playTime !== null) return playTime; const input = active(id); return input ? Number(input.value) : 0; };
   const samples = (from, to, amount, fn) => Array.from({ length: amount }, (_, i) => {
     const x = from + i * (to - from) / (amount - 1);
     return { x, y: fn(x) };
@@ -74,7 +91,9 @@
     const element = $(id);
     const ratio = Math.max(1, Math.min(2, devicePixelRatio || 1));
     const width = element.clientWidth || 900;
-    const height = width * (id === "mainCanvas" ? .5 : .34);
+    // Altura mínima: no celular dois painéis num canvas baixo ficam ilegíveis. O canvas do
+    // painel secundário não passa de 260 px (limite do CSS; sem isso a imagem seria achatada).
+    const height = id === "mainCanvas" ? Math.max(width * .5, view === "current" ? 460 : 320) : Math.min(Math.max(width * .34, 220), 260);
     element.width = width * ratio;
     element.height = height * ratio;
     const ctx = element.getContext("2d");
@@ -85,22 +104,37 @@
     return { ctx, width, height };
   }
 
-  function axes(target, xMin, xMax, yMin, yMax, xLabel, yLabel, yDigits = 1) {
+  // Marcas dos eixos: múltiplos de 1, 2, 5 × 10ᵏ (niceTicks), com 0 e as referências;
+  // opts.xTicks / opts.yTicks aceitam uma lista explícita (números ou {v, label}).
+  function tickList(min, max, target, explicit) {
+    if (explicit) {
+      const places = Math.max(0, ...explicit.map(t => { const v = typeof t === "number" ? t : t.v; return Number.isInteger(v) ? 0 : Math.min(3, (String(v).split(".")[1] || "").length); }));
+      return explicit.map(t => typeof t === "number" ? { v: t, label: fmt(t, places) } : t);
+    }
+    const nice = niceTicks(min, max, target);
+    return nice.ticks.map(v => ({ v, label: fmt(v, nice.digits) }));
+  }
+
+  function axes(target, xMin, xMax, yMin, yMax, xLabel, yLabel, yDigits = 1, opts = {}) {
     const { ctx, width, height } = target;
     const left = 58, right = width - 20, top = 24, bottom = height - 43;
     const X = x => left + (x - xMin) * (right - left) / (xMax - xMin);
     const Y = y => bottom - (y - yMin) * (bottom - top) / (yMax - yMin);
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    const xTicks = tickList(xMin, xMax, clamp(Math.floor((right - left) / 64), 3, 8), opts.xTicks);
+    const yTicks = tickList(yMin, yMax, clamp(Math.floor((bottom - top) / 36), 2, 6), opts.yTicks);
     ctx.font = "10px Ubuntu, system-ui";
     ctx.lineWidth = 1;
-    for (let i = 0; i <= 5; i += 1) {
-      const x = xMin + i * (xMax - xMin) / 5;
-      const y = yMin + i * (yMax - yMin) / 5;
-      ctx.strokeStyle = C.grid;
-      ctx.beginPath(); ctx.moveTo(X(x), top); ctx.lineTo(X(x), bottom); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(left, Y(y)); ctx.lineTo(right, Y(y)); ctx.stroke();
-      ctx.fillStyle = C.gray; ctx.textAlign = "center"; ctx.fillText(fmt(x, 1), X(x), bottom + 15);
-      ctx.textAlign = "right"; ctx.fillText(fmt(y, yDigits), left - 7, Y(y) + 3);
-    }
+    xTicks.forEach(({ v, label }) => {
+      ctx.strokeStyle = v === 0 ? "#b4c0b8" : C.grid;
+      ctx.beginPath(); ctx.moveTo(X(v), top); ctx.lineTo(X(v), bottom); ctx.stroke();
+      ctx.fillStyle = C.gray; ctx.textAlign = "center"; ctx.fillText(label, X(v), bottom + 15);
+    });
+    yTicks.forEach(({ v, label }) => {
+      ctx.strokeStyle = v === 0 ? "#b4c0b8" : C.grid;
+      ctx.beginPath(); ctx.moveTo(left, Y(v)); ctx.lineTo(right, Y(v)); ctx.stroke();
+      ctx.fillStyle = C.gray; ctx.textAlign = "right"; ctx.fillText(label, left - 7, Y(v) + 3);
+    });
     ctx.strokeStyle = C.gray;
     ctx.beginPath(); ctx.moveTo(left, bottom); ctx.lineTo(right, bottom); ctx.moveTo(left, top); ctx.lineTo(left, bottom); ctx.stroke();
     ctx.fillStyle = C.gray; ctx.textAlign = "center"; ctx.fillText(xLabel, (left + right) / 2, height - 7);
@@ -154,10 +188,12 @@
       const chart = axes(main, -3, 3, 0, Math.max(.65, t * t / (Math.sqrt(2 * Math.PI) * a) * 1.12), "posição x", "|Ψ|²");
       chart.ctx.fillStyle = "rgba(131,196,78,.2)"; chart.ctx.fillRect(chart.X(-b), chart.top, chart.X(b) - chart.X(-b), chart.bottom - chart.top);
       line(chart, samples(-3, 3, 320, density), C.green);
-      const area = t * t;
+      const area = t * t, isNorm = P.isNormalized(area);
+      // "P" só existe com norma 1; fora disso é apenas o peso ∫|Ψ|²dx do intervalo.
+      const weightLabel = isNorm ? "P(−b ≤ x ≤ b)" : "peso ∫|Ψ|²dx em [−b, b]";
       const chart2 = axes(secondary, 0, 1.8, 0, 3.3, "amplitude A/A₀", "∫|Ψ|² dx");
       line(chart2, samples(0, 1.8, 180, x => x * x), C.gold); line(chart2, [{ x: 0, y: 1 }, { x: 1.8, y: 1 }], C.gray, [6, 4]);
-      renderText({ title: "Oficina de normalização", subtitle: "a área responde como A²", caption: "A faixa verde é o intervalo escolhido; a curva muda de área quando A ≠ A₀.", secondaryTitle: "Teste de normalização", secondarySubtitle: "a norma é quadrática na amplitude", secondaryCaption: "O cruzamento em A/A₀ = 1 marca o estado normalizado.", prediction: "Dobrar a amplitude dobra ou quadruplica a norma?", calculation: `∫|AΨ₀|²dx = A²/A₀²<br><b>norma = ${fmt(area)} · P(−b≤x≤b) = ${fmt(probability * area)}</b>`, metrics: [["norma", fmt(area)], ["P no intervalo", fmt(probability * area)], ["densidade normalizada?", Math.abs(t - 1) < .015 ? "sim" : "não"]], concept: "Normalizar é ajustar uma amplitude global para que a área de |Ψ|² seja exatamente um.", prompts: ["Ajuste A até a norma valer 1.", "Mude σ sem mudar A e observe a área.", "Explique por que a probabilidade do intervalo depende de b/σ."], legend: [[C.green, "|Ψ|²"], [C.lime, "intervalo"]] });
+      renderText({ title: "Oficina de normalização", subtitle: "a área responde como A²", caption: "A faixa verde é o intervalo escolhido; a curva muda de área quando A ≠ A₀. Só com norma 1 o peso do intervalo é uma probabilidade.", secondaryTitle: "Teste de normalização", secondarySubtitle: "a norma é quadrática na amplitude", secondaryCaption: "O cruzamento em A/A₀ = 1 marca o estado normalizado.", prediction: "Dobrar a amplitude dobra ou quadruplica a norma?", calculation: `∫|AΨ₀|²dx = A²/A₀²<br><b>norma = ${fmt(area)} · ${weightLabel} = ${fmt(probability * area)}</b>`, metrics: [["norma ∫|Ψ|²dx", fmt(area)], [isNorm ? "P(−b ≤ x ≤ b)" : "peso em [−b, b]", fmt(probability * area)], ["densidade normalizada?", isNorm ? "sim" : "não"]], concept: "Normalizar é ajustar uma amplitude global para que a área de |Ψ|² seja exatamente um.", prompts: ["Ajuste A até a norma valer 1.", "Mude σ sem mudar A e observe a área.", "Explique por que a probabilidade do intervalo depende de b/σ."], legend: [[C.green, "|Ψ|²"], [C.lime, "intervalo"]] });
     } else if (view === "current") {
       // Pacote livre exato (ħ = m = 1); J sai de Ψ por J = Im(Ψ*∂ₓΨ).
       const sigma0 = a, k0 = b, x0 = P.startPosition(k0), tMax = Number(active("tertiary").max), A = -1, B = 1;
@@ -165,16 +201,20 @@
       const jLeft = J(A), jRight = J(B), rate = P.continuityRate(jLeft, jRight);
       const P_ab = time => P.packetInterval(A, B, time, sigma0, k0, x0);
       const dt = 1e-3, rateNumeric = (P_ab(t + dt) - P_ab(Math.max(0, t - dt))) / (t + dt - Math.max(0, t - dt));
-      const xs = samples(-10, 10, 161, x => x), times = samples(0, tMax, 13, x => x);
+      const xHalf = P.currentAxisHalf ? P.currentAxisHalf(sigma0, k0, tMax, x0) : 12;
+      const xs = samples(-xHalf, xHalf, 241, x => x), times = samples(0, tMax, 13, x => x);
       const jScale = Math.max(.05, ...times.flatMap(time => xs.map(p => Math.abs(P.currentFromPsi(p.x, time.x, sigma0, k0, x0))))) * 1.15;
       const rhoTop = 1 / (Math.sqrt(2 * Math.PI) * sigma0) * 1.15;
       const residual = Math.max(...samples(-6, 6, 121, x => Math.abs(P.continuityResidual(x, t, sigma0, k0, x0))).map(p => p.y));
       let total = 0; for (let x = -30; x <= 30; x += .02) total += J(x) * .02;
       // painel principal: ρ em cima, J embaixo, mesmo eixo x
       const half = main.height * .56, ctx = main.ctx;
-      const top = axes({ ctx, width: main.width, height: half }, -10, 10, 0, rhoTop, "", "ρ(x,t)", 2);
+      const top = axes({ ctx, width: main.width, height: half }, -xHalf, xHalf, 0, rhoTop, "", "ρ(x,t)", 2);
       ctx.fillStyle = "rgba(69,123,157,.12)"; ctx.fillRect(top.X(A), top.top, top.X(B) - top.X(A), top.bottom - top.top);
-      line(top, samples(-10, 10, 400, rho), C.green);
+      line(top, samples(-xHalf, xHalf, 600, rho), C.green);
+      // fronteiras do volume de controle, nomeadas (as marcas dos eixos não caem em ±1)
+      ctx.font = "10px Ubuntu, system-ui"; ctx.fillStyle = C.blue;
+      if (top.X(B) - top.X(A) > 20) { ctx.textAlign = "right"; ctx.fillText("−1", top.X(A) - 3, top.bottom - 5); ctx.textAlign = "left"; ctx.fillText("1", top.X(B) + 3, top.bottom - 5); }
       const arrowAt = (x, current, entering) => {
         const length = Math.max(16, Math.min(60, 60 * Math.abs(current) / jScale)), y = top.top + 14, dir = Math.sign(current);
         if (Math.abs(current) < .02 * jScale) return;
@@ -184,10 +224,10 @@
       };
       arrowAt(A, jLeft, jLeft > 0); arrowAt(B, jRight, jRight < 0);
       ctx.save(); ctx.translate(0, half - 12);
-      const bottom = axes({ ctx, width: main.width, height: main.height - half + 12 }, -10, 10, -jScale, jScale, "posição x", "J(x,t)", 2);
+      const bottom = axes({ ctx, width: main.width, height: main.height - half + 12 }, -xHalf, xHalf, -jScale, jScale, "posição x", "J(x,t)", 2);
       ctx.fillStyle = "rgba(69,123,157,.12)"; ctx.fillRect(bottom.X(A), bottom.top, bottom.X(B) - bottom.X(A), bottom.bottom - bottom.top);
-      line(bottom, [{ x: -10, y: 0 }, { x: 10, y: 0 }], C.gray, [3, 3], 1);
-      line(bottom, samples(-10, 10, 400, J), C.blue);
+      line(bottom, [{ x: -xHalf, y: 0 }, { x: xHalf, y: 0 }], C.gray, [3, 3], 1);
+      line(bottom, samples(-xHalf, xHalf, 600, J), C.blue);
       ctx.restore();
       // painel secundário: P(−1 ≤ x ≤ 1) no tempo e a reta de inclinação J(−1) − J(1)
       const pMax = Math.max(.2, ...times.map(time => P_ab(time.x))) * 1.15;
@@ -203,14 +243,15 @@
         secondaryCaption: "A curva é P(−1 ≤ x ≤ 1) ao longo do tempo; a reta tracejada tem inclinação J(−1) − J(1) calculada no instante atual e deve tangenciar a curva.",
         prediction: Math.abs(k0) < .025 ? "Com k₀ = 0 o centro não se move. J é nula? Para onde escoa a probabilidade?" : "Quando o centro do pacote passa por x = 0, P(−1 ≤ x ≤ 1) está no máximo? J(−1) e J(1) são iguais nesse instante?",
         calculation: `J = (ħ/m) Im(Ψ*∂ₓΨ) = ρv<br>v = k₀ + [(dσ/dt)/σ](x − x<sub>c</sub>)<br>dP/dt = J(−1) − J(1)<br><b>= ${fmt(jLeft)} − (${fmt(jRight)}) = ${fmt(rate)}</b><br><small>inclinação medida em P(t): ${fmt(rateNumeric)}</small><br><small>∫J dx = ${fmt(total)} = ⟨p⟩/m = ${fmt(k0)}</small>`,
-        metrics: [["P(−1 ≤ x ≤ 1)", fmt(pNow)], ["J(−1)", fmt(jLeft)], ["J(1)", fmt(jRight)], ["dP/dt = J(−1) − J(1)", fmt(rate)], ["centro · largura", `${fmt(x0 + k0 * t, 2)} · ${fmt(P.freePacket(0, t, sigma0, k0, x0).width, 2)}`], ["resíduo máx. da continuidade", residual.toExponential(1)]],
+        metrics: [["P(−1 ≤ x ≤ 1)", fmt(pNow)], ["J(−1)", fmt(jLeft)], ["J(1)", fmt(jRight)], ["dP/dt = J(−1) − J(1)", fmt(rate)], ["centro · largura", `${fmt(x0 + k0 * t, 2)} · ${fmt(P.freePacket(0, t, sigma0, k0, x0).width, 2)}`], ["resíduo máx. da continuidade", sci(residual, 1)]],
         concept: "A continuidade ∂ₜρ + ∂ₓJ = 0 diz que a probabilidade só muda atravessando fronteiras. J mede quanta probabilidade cruza cada ponto por unidade de tempo e vem da fase de Ψ: J = ρv. Aqui ela não é imposta: é calculada de Ψ, e o resíduo confere a lei ponto a ponto.",
         prompts: ["Pare o pacote entrando, centrado e saindo: anote J(−1), J(1) e dP/dt e confira com a inclinação de P(t).", "No instante em que o centro passa por x = 0, J(−1) = J(1)? Por que o máximo de P vem antes? (Pense no alargamento.)", "Ponha k₀ = 0: o centro fica parado, mas J ≠ 0. Descreva o sinal de J nos dois lados e relacione com o alargamento."],
         legend: [[C.green, "ρ(x,t) e P(t)"], [C.blue, "J(x,t)"], [C.gold, "inclinação J(−1) − J(1)"]] });
     } else {
       // Três formas com o mesmo Δx; ψ·exp(ip₀x + iβx²). Gaussiana sem fase quadrática é o mínimo.
       const state = P.uncertaintyState(uncertaintyKind, a, b, t), reference = P.uncertaintyState("gaussian", a, b, 0);
-      const pHalf = Math.max(3, 4.5 * state.dp), ps = samples(b - pHalf, b + pHalf, 161, p => p).map(p => p.x);
+      // eixo p/ℏ fixo e simétrico em 0: p₀ desloca a curva na tela (não recentra o eixo)
+      const pHalf = P.momentumAxisHalf ? P.momentumAxisHalf(state.dp) : Math.ceil(2 + 4 * state.dp), ps = samples(-pHalf, pHalf, 161, p => p).map(p => p.x);
       const key = `${uncertaintyKind}|${a}|${b}|${t}`;
       if (momentumCache.key !== key) momentumCache = { key, values: P.momentumDensity(state, ps) };
       const rhoP = momentumCache.values.map((y, i) => ({ x: ps[i], y }));
@@ -223,15 +264,15 @@
       line(cx, samples(-xHalf, xHalf, 600, state.density), C.green);
       marks(cx, 0, a, C.green);
       const pTop = Math.max(...rhoP.map(p => p.y), ...refP.map(p => p.y)) * 1.15;
-      const cp = axes(secondary, b - pHalf, b + pHalf, 0, pTop, "momento p/ℏ", "ρₚ(p) = |φ(p)|²", 2);
+      const cp = axes(secondary, -pHalf, pHalf, 0, pTop, "momento p/ℏ", "ρₚ(p) = |φ(p)|²", 2);
       cp.yMin = 0; cp.yMax = pTop;
       line(cp, refP, C.gray, [6, 4], 1.6);
       line(cp, rhoP, C.gold);
       marks(cp, b, state.dp, C.gold);
       const products = ["gaussian", "triangular", "exponential"].map(kind => fmt(P.uncertaintyState(kind, a, 0, t).product, 3));
-      const excess = 100 * (state.product / .5 - 1);
+      const excess = Math.max(0, 100 * (state.product / .5 - 1));
       const dpFormula = { gaussian: "ħ/(2Δx)", exponential: "ħ/(√2 Δx)", triangular: "√0,3 ħ/Δx" }[uncertaintyKind];
-      renderText({ title: `Estado ${state.name}: distribuição em posição`, subtitle: `Δx = ${fmt(a, 2)} · linhas tracejadas em ±Δx`,
+      renderText({ title: `Estado ${state.adjective || state.name}: distribuição em posição`, subtitle: `Δx = ${fmt(a, 2)} · linhas tracejadas em ±Δx`,
         caption: "Curva verde: o estado escolhido. Cinza tracejado: a gaussiana com o mesmo Δx, que é o estado de incerteza mínima. p₀ e β mudam a fase de ψ, não ρₓ(x): esta curva não se move quando você mexe neles.",
         secondaryTitle: "Distribuição em momento", secondarySubtitle: `Δp = ${fmt(state.dp, 3)} ħ · tracejado em ⟨p⟩ ± Δp`,
         secondaryCaption: `φ(p) é calculada numericamente pela transformada de Fourier de ψ(x). Cinza tracejado: a gaussiana de mesmo Δx. Os eixos têm unidades próprias; as larguras não se comparam visualmente entre os painéis.${uncertaintyKind === "exponential" ? " Repare: o pico de φ(p) da exponencial é mais estreito que o da gaussiana e, ainda assim, Δp é maior — as caudas, que decaem como p⁻⁴, pesam em ⟨p²⟩." : ""}`,
@@ -400,7 +441,7 @@
     ["parameter", "secondary", "tertiary"].forEach(id => {
       const input = active(id); if (!input) return;
       const output = input.closest("label").querySelector("output");
-      output.textContent = fmt(Number(input.value), Number(input.step) >= 1 ? 0 : 2);
+      output.textContent = fmt(id === "tertiary" ? value("tertiary") : Number(input.value), Number(input.step) >= 1 ? 0 : 2);
     });
   }
 
@@ -412,7 +453,7 @@
     html("actionBar", `${uncertaintySelector}${stateSelector}${canPlay ? `<button id="playBtn" type="button">${playing ? "❚❚ Pausar" : "▶ Evoluir"}</button><button id="zeroBtn" class="quiet" type="button">t = 0</button>` : ""}${canMeasure ? `<button data-shots="1">Medir 1</button><button data-shots="100">Medir 100</button><button data-shots="1000">Medir 1000</button><button id="clearBtn" class="quiet">Limpar</button>` : ""}`);
     if (uncertaintySelector) { $("uncertaintyKind").value = uncertaintyKind; $("uncertaintyKind").onchange = event => { uncertaintyKind = event.target.value; draw(); }; }
     if (topic === "aula06") { $("basisKind").value = basisKind; $("basisKind").onchange = event => { basisKind = event.target.value; counts = Array(modeCount).fill(0); window.lastMeasurement = null; draw(); }; $("modeCount").oninput = event => { modeCount = Number(event.target.value); event.target.nextElementSibling.textContent = modeCount; counts = Array(modeCount).fill(0); window.lastMeasurement = null; draw(); }; }
-    if (canPlay) { $("playBtn").onclick = togglePlay; $("zeroBtn").onclick = () => { active("tertiary").value = 0; draw(); }; }
+    if (canPlay) { $("playBtn").onclick = togglePlay; $("zeroBtn").onclick = () => { active("tertiary").value = 0; if (playTime !== null) playTime = 0; draw(); }; }
     if (canMeasure) {
       document.querySelectorAll("[data-shots]").forEach(button => button.onclick = () => measure(Number(button.dataset.shots)));
       $("clearBtn").onclick = () => { counts = Array(modeCount).fill(0); window.lastMeasurement = null; draw(); };
@@ -427,7 +468,10 @@
 
   function togglePlay() {
     playing = !playing; lastFrame = performance.now();
-    if (playing && topic === "aula03" && Number(active("tertiary").value) >= Number(active("tertiary").max)) active("tertiary").value = 0;
+    const input = active("tertiary"), max = Number(input.max);
+    // "Evoluir" no tempo máximo recomeça de t = mínimo (nas Aulas 3–6 o tempo reinicia).
+    if (playing && topic === "aula03" && Number(input.value) >= max - Number(input.step) / 2) input.value = input.min;
+    playTime = playing ? Number(input.value) : null;
     updateActions();
     if (playing) animation = requestAnimationFrame(tick); else cancelAnimationFrame(animation);
   }
@@ -435,10 +479,11 @@
   function tick(now) {
     if (!playing) return;
     const input = active("tertiary");
-    const next = Number(input.value) + (now - lastFrame) * .001, max = Number(input.max);
+    const next = (playTime ?? Number(input.value)) + (now - lastFrame) * .001, max = Number(input.max);
     lastFrame = now;
-    if (topic === "aula03" && next >= max) { input.value = max; playing = false; updateActions(); draw(); return; }
-    input.value = topic === "aula03" ? next : next % TAU;
+    if (topic === "aula03" && next >= max) { input.value = max; playTime = null; playing = false; updateActions(); draw(); return; }
+    playTime = topic === "aula03" ? next : next % TAU;
+    input.value = playTime;
     draw(); animation = requestAnimationFrame(tick);
   }
 
@@ -453,7 +498,7 @@
   }
 
   function switchView(next) {
-    playing = false; cancelAnimationFrame(animation); view = next;
+    playing = false; playTime = null; cancelAnimationFrame(animation); view = next;
     document.querySelectorAll("[data-view]").forEach(button => { const selected = button.dataset.view === view; button.classList.toggle("active", selected); button.setAttribute("aria-selected", String(selected)); });
     document.querySelectorAll("[data-controls]").forEach(section => section.classList.toggle("active", section.dataset.controls === view));
     try { const url = new URL(location.href); url.searchParams.set("view", view); history.replaceState(null, "", url); } catch (_) {}
@@ -468,8 +513,9 @@
     event.preventDefault(); tabs[index].focus(); switchView(tabs[index].dataset.view);
   });
   document.querySelectorAll("[data-view]").forEach(button => button.addEventListener("click", () => switchView(button.dataset.view)));
-  document.querySelectorAll("input").forEach(input => input.addEventListener("input", draw));
-  $("resetBtn").addEventListener("click", () => { playing = false; counts = Array(modeCount).fill(0); window.lastMeasurement = null; configureControls(); draw(); });
+  // arrastar o slider de tempo durante a animação reposiciona o tempo em ponto flutuante
+  document.querySelectorAll("input").forEach(input => input.addEventListener("input", () => { if (playTime !== null && input === active("tertiary")) playTime = Number(input.value); draw(); }));
+  $("resetBtn").addEventListener("click", () => { playing = false; playTime = null; cancelAnimationFrame(animation); uncertaintyKind = "gaussian"; momentumCache = { key: "", values: [] }; counts = Array(modeCount).fill(0); window.lastMeasurement = null; configureControls(); draw(); });
   window.addEventListener("resize", draw);
   switchView(view);
 })();

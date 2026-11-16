@@ -117,9 +117,44 @@
   const lifetime = (gamma) => (gamma > 0 ? 1 / (2 * gamma) : Infinity);
   const linewidthFWHM = (gamma) => 2 * gamma;
 
+
+  // ---------- eixos e formatação (apresentação; sem física) ----------
+  // niceTicks: marcas em passos 1, 2, 5 × 10^k, incluindo 0 quando ele cai no intervalo.
+  // Casas decimais do rótulo: tickDigits(step) = max(0, −⌊log10(step)⌋).
+  function niceTicks(min, max, target = 5) {
+    const span = max - min, raw = span / Math.max(1, target), p = 10 ** Math.floor(Math.log10(raw)), f = raw / p;
+    const step = (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * p, out = [];
+    for (let v = Math.ceil(min / step - 1e-9) * step; v <= max + step * 1e-9; v += step) out.push(Math.abs(v) < step * 1e-9 ? 0 : Number(v.toFixed(12)));
+    return { step, ticks: out };
+  }
+  const tickDigits = (step) => Math.max(0, -Math.floor(Math.log10(step) + 1e-9));
+  // Casas mínimas (até 3) para que todas as marcas de uma lista explícita sejam exatas.
+  function listDigits(ticks) {
+    let d = 0;
+    for (const t of ticks) while (d < 3 && Math.abs(t * 10 ** d - Math.round(t * 10 ** d)) > 1e-7) d += 1;
+    return d;
+  }
+  // Acrescenta referências (paredes, a/2…) e remove marcas a menos de `gap` de alguma delas.
+  function mergeTicks(ticks, refs, gap) {
+    const kept = ticks.filter((t) => refs.every((r) => Math.abs(t - r) >= gap));
+    return [...new Set([...kept, ...refs])].sort((a, b) => a - b);
+  }
+  // Teto do quadro da estação E > V_mín: 1,3·E (sem limite superior), para a linha E, |ψ|² e o rótulo
+  // aparecerem também quando E ≫ V_mín (w = 0,10 do roteiro dá E = 12,31).
+  const vminFrameTop = (vmin, ...energies) => Math.max(vmin + 3, 1.3 * Math.max(...energies));
+  // Número em pt-BR: vírgula decimal, "−" tipográfico, sem separador de milhar (1099 nm) e
+  // sem zero negativo: |v| menor que meia casa mostrada vira 0.
+  function formatPt(x, digits = 2) {
+    const v = Number(x);
+    if (!Number.isFinite(v)) return v > 0 ? "∞" : v < 0 ? "−∞" : "—";
+    const z = Math.abs(v) < 0.5 * 10 ** -digits ? 0 : v;
+    return z.toLocaleString("pt-BR", { minimumFractionDigits: digits, maximumFractionDigits: digits, useGrouping: false }).replace(/-/g, "−");
+  }
+
   const api = { matrixElement, matrix, hermitianDefect, numericElement, normDecay, lifetime, linewidthFWHM, phase, boxWave, densityStationary, energyLevel, ringWave, ringDensity,
     twoLevel, twoLevelMeanX, twoLevelEnergy, measureEnergy, x12,
-    potentials, makeGrid, normalize, trialGaussian, energyParts, potentialMinimum, relax };
+    potentials, makeGrid, normalize, trialGaussian, energyParts, potentialMinimum, relax,
+    niceTicks, tickDigits, listDigits, mergeTicks, formatPt, vminFrameTop };
   root.QuantumPhysics = api;
   if (typeof module !== "undefined") module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

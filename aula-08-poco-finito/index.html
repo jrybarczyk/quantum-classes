@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="Aplicação interativa da aula 8: poço quadrado finito, solução gráfica das equações de quantização, autofunções com caudas evanescentes, limite do poço infinito e ponto quântico de CdSe.">
 <title>Aula 8 · Poço quadrado finito</title>
-<link rel="stylesheet" href="../_shared/dashboard.css?v=7716005a8c">
+<link rel="stylesheet" href="../_shared/dashboard.css?v=f634b2ad9d">
 <link rel="stylesheet" href="styles.css?v=c250cf4946">
 </head>
 <body>
@@ -41,7 +41,7 @@
 
     <section class="view-controls" data-controls="autofuncoes">
       <h3>Autofunção ψₙ(x)</h3>
-      <p class="equation">ψ₊: A cos(kx) em |x| ≤ a; A cos(ka) e^(−κ(|x|−a)) em |x| ≥ a<br>ψ₋: A sen(kx) em |x| ≤ a; A sgn(x) sen(ka) e^(−κ(|x|−a)) em |x| ≥ a</p>
+      <p class="equation">ψ₊: A cos(kx) em |x| ≤ a; A cos(ka) e<sup>−κ(|x|−a)</sup> em |x| ≥ a<br>ψ₋: A sen(kx) em |x| ≤ a; A sgn(x) sen(ka) e<sup>−κ(|x|−a)</sup> em |x| ≥ a</p>
       <label><span>profundidade adimensional z₀</span><output id="autoZ0Out"></output><input id="autoZ0" type="range" min="0.3" max="8" step="0.01" value="2"></label>
       <label><span>nível n</span><output id="autoNOut"></output><input id="autoN" type="range" min="1" max="6" step="1" value="1"></label>
       <p class="hint">Fixo: a largura 2a. A região |x| &gt; a é classicamente proibida para qualquer estado ligado.</p>
@@ -59,9 +59,9 @@
       <p class="equation">z₀ = a√(V₀/(ħ²/2m*)) · m* = 0,13 mₑ<br>ħ²/2mₑ = 0,0381 eV·nm²</p>
       <label><span>diâmetro do cristal 2a (nm)</span><output id="cdseDOut"></output><input id="cdseD" type="range" min="2" max="8" step="0.1" value="4"></label>
       <label><span>profundidade V₀ (eV)</span><output id="cdseV0Out"></output><input id="cdseV0" type="range" min="0.5" max="3" step="0.05" value="1"></label>
-      <p class="hint">Fixo: m* = 0,13 mₑ e E_gap = 1,74 eV. O buraco e a atração elétron–buraco são ignorados, como na nota.</p>
+      <p class="hint">Fixo: m* = 0,13 mₑ e E<sub>gap</sub> = 1,74 eV. O buraco e a atração elétron–buraco são ignorados, como na nota.</p>
       <fieldset class="ext"><legend>Extensão (fora da nota)</legend>
-        <label class="check"><input id="cdseHole" type="checkbox"><span>+ buraco confinado (m_h* = 0,45 mₑ)</span></label>
+        <label class="check"><input id="cdseHole" type="checkbox"><span>+ buraco confinado (m<sub>h</sub>* = 0,45 mₑ)</span></label>
         <label class="check"><input id="cdseSphere" type="checkbox"><span>esfera de raio R = a (ramo ímpar, estado l = 0)</span></label>
       </fieldset>
     </section>
@@ -86,7 +86,7 @@
 
 <footer><span>Biocomplexity Lab · material didático</span><span>Instituto de Biociências de Botucatu — UNESP · Depto. de Biofísica e Farmacologia · Prof. Assoc. José L. Rybarczyk-Filho</span></footer>
 </main>
-<script src="physics.js?v=2b496b801a"></script>
-<script src="app.js?v=f4b8c3f39c"></script>
+<script src="physics.js?v=44bc6813d0"></script>
+<script src="app.js?v=66f15460ce"></script>
 </body>
 </html>

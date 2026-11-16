@@ -9,34 +9,36 @@
   let view = new URLSearchParams(location.search).get("view");
   if (!VIEWS.includes(view)) view = "sequence";
 
-  const fmt = (x, n = 2) => { if (!Number.isFinite(x)) return "—"; const r = Math.abs(x) < 0.5 * 10 ** -n ? 0 : x; return Number(r).toLocaleString("pt-BR", { minimumFractionDigits: n, maximumFractionDigits: n }).replace(/^-/, "−"); };
-  const sci = (x, n = 2) => { if (!Number.isFinite(x) || x === 0) return fmt(x, n); const e = Math.floor(Math.log10(Math.abs(x))); return `${fmt(x / 10 ** e, n)}×10${String(e).replace("-", "⁻").replace(/\d/g, (d) => "⁰¹²³⁴⁵⁶⁷⁸⁹"[d])}`; };
+  const fmt = (x, n = 2) => { if (!Number.isFinite(x)) return "—"; const r = Math.abs(x) < 0.5 * 10 ** -n ? 0 : x; return Number(r).toLocaleString("pt-BR", { minimumFractionDigits: n, maximumFractionDigits: n, useGrouping: false }).replace(/^-/, "−"); };
+  const sci = (x, n = 2) => { if (!Number.isFinite(x) || x === 0) return fmt(x, n); let e = Math.floor(Math.log10(Math.abs(x))), m = x / 10 ** e; if (Math.abs(Number(m.toFixed(n))) >= 10) { m /= 10; e += 1; } return `${fmt(m, n)}×10${String(e).replace("-", "⁻").replace(/\d/g, (d) => "⁰¹²³⁴⁵⁶⁷⁸⁹"[d])}`; };
+  // TeX cru → HTML: e^(−2πikx) → e<sup>…</sup>, σ_H → σ<sub>H</sub> (só nos textos da página, não no canvas).
+  const tex = (t) => String(t).replace(/\^\(([^)]*)\)/g, "<sup>$1</sup>").replace(/(\S)_([A-Za-zçíóáéãõ±]+)/g, "$1<sub>$2</sub>");
   const v = (id) => Number($(id).value);
-  const set = (id, text) => { $(id).textContent = text; };
-  const html = (id, content) => { $(id).innerHTML = content; };
+  const set = (id, text) => { $(id).innerHTML = tex(text); };
+  const html = (id, content) => { $(id).innerHTML = tex(content); };
   const samples = (a, b, n, fn) => Array.from({ length: n }, (_, i) => { const x = a + i * (b - a) / (n - 1); return { x, y: fn(x) }; });
 
   // ---------------------------------------------------------------- desenho
-  function canvas(id, aspect) {
-    const el = $(id), ratio = Math.max(1, Math.min(2, devicePixelRatio || 1)), w = el.clientWidth || 900, h = w * aspect;
+  function canvas(id, aspect, minNarrow = 260) {
+    const el = $(id), ratio = Math.max(1, Math.min(2, devicePixelRatio || 1)), w = el.clientWidth || 900, narrow = w < 600, h = narrow ? Math.max(w * aspect, minNarrow) : w * aspect;
     el.width = w * ratio; el.height = h * ratio;
-    const ctx = el.getContext("2d"); ctx.scale(ratio, ratio);
+    const ctx = el.getContext("2d"); ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     ctx.fillStyle = "#fbfcfa"; ctx.fillRect(0, 0, w, h);
-    return { ctx, w, h };
+    return { ctx, w, h, narrow };
   }
   function axes(target, box, xMin, xMax, yMin, yMax, xLabel, yLabel, o = {}) {
     const ctx = target.ctx, left = box.x + 54, right = box.x + box.w - 14, top = box.y + 18, bottom = box.y + box.h - 38;
     const lx = (x) => (o.logX ? Math.log10(x) : x), xa = lx(xMin), xb = lx(xMax);
     const X = (x) => left + (lx(x) - xa) * (right - left) / (xb - xa), Y = (y) => bottom - (y - yMin) * (bottom - top) / (yMax - yMin);
     ctx.font = "10px Ubuntu, system-ui"; ctx.lineWidth = 1;
-    const n = o.ticks ?? 5;
-    const xt = o.xTicks || Array.from({ length: n + 1 }, (_, i) => xMin + i * (xMax - xMin) / n);
-    xt.forEach((x) => { ctx.strokeStyle = C.grid; ctx.beginPath(); ctx.moveTo(X(x), top); ctx.lineTo(X(x), bottom); ctx.stroke(); ctx.fillStyle = C.gray; ctx.textAlign = "center"; ctx.fillText(o.xLabels ? o.xLabels(x) : fmt(x, o.xDigits ?? 1), X(x), bottom + 14); });
-    for (let i = 0; i <= n; i += 1) {
-      const y = yMin + i * (yMax - yMin) / n;
+    // marcas "redondas" (passos 1, 2, 5 × 10ᵏ, com 0), rótulos com as casas do passo; lista explícita via xTicks/yTicks
+    const n = o.ticks ?? 5, nx = P.niceTicks(xMin, xMax, o.xTarget ?? Math.min(n, box.w < 420 ? 4 : n)), ny = P.niceTicks(yMin, yMax, n);
+    const xt = o.xTicks || nx.ticks, yt = o.yTicks || ny.ticks;
+    xt.forEach((x) => { ctx.strokeStyle = C.grid; ctx.beginPath(); ctx.moveTo(X(x), top); ctx.lineTo(X(x), bottom); ctx.stroke(); ctx.fillStyle = C.gray; ctx.textAlign = "center"; ctx.fillText(o.xLabels ? o.xLabels(x) : fmt(x, o.xDigits ?? nx.decimals), X(x), bottom + 14); });
+    yt.forEach((y) => {
       ctx.strokeStyle = C.grid; ctx.beginPath(); ctx.moveTo(left, Y(y)); ctx.lineTo(right, Y(y)); ctx.stroke();
-      ctx.fillStyle = C.gray; ctx.textAlign = "right"; ctx.fillText(fmt(y, o.yDigits ?? 1), left - 6, Y(y) + 3);
-    }
+      ctx.fillStyle = C.gray; ctx.textAlign = "right"; ctx.fillText(fmt(y, o.yDigits ?? ny.decimals), left - 6, Y(y) + 3);
+    });
     ctx.strokeStyle = C.gray; ctx.beginPath(); ctx.moveTo(left, bottom); ctx.lineTo(right, bottom); ctx.moveTo(left, top); ctx.lineTo(left, bottom); ctx.stroke();
     ctx.fillStyle = C.gray; ctx.font = "11px Ubuntu, system-ui"; ctx.textAlign = "center"; ctx.fillText(xLabel, (left + right) / 2, box.y + box.h - 6);
     ctx.save(); ctx.translate(box.x + 12, (top + bottom) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(yLabel, 0, 0); ctx.restore();
@@ -78,19 +80,26 @@
     if (Math.abs(x0 - v("seqX0")) > 1e-9) $("seqX0").value = x0;
     set("seqEpsOut", fmt(eps, 2)); set("seqX0Out", fmt(x0, 2));
     const N = 60, probs = P.boxProbabilities(x0, eps, N), pI = P.intervalProbability(1, x0, eps), tail = P.boxTailIndex(x0, eps, 0.98), plateau = P.boxPlateau(eps);
-    const main = canvas("mainCanvas", .5), wL = main.w * .36;
+    const main = canvas("mainCanvas", .5, 520), stack = main.narrow, wL = stack ? main.w : main.w * .36, hL = stack ? main.h * .5 : main.h;
     // painel esquerdo: ψ₁ antes, caixa depois
     const amp = 1 / Math.sqrt(eps), yTop = Math.max(1.7, amp * 1.12);
-    const L = axes(main, { x: 0, y: 0, w: wL, h: main.h }, -.08, 1.08, 0, yTop, "posição x/a", "amplitude (unid. 1/√a)", { ticks: 4, xDigits: 1 });
+    const L = axes(main, { x: 0, y: 0, w: wL, h: hL }, -.08, 1.08, 0, yTop, "posição x/a", "amplitude (unid. 1/√a)", { ticks: 4 });
     walls(L, 0, 1);
     clip(L, (c) => { c.fillStyle = "rgba(233,162,59,.18)"; c.fillRect(L.X(x0 - eps / 2), L.top, L.X(x0 + eps / 2) - L.X(x0 - eps / 2), L.bottom - L.top); });
     line(L, samples(0, 1, 240, (u) => P.boxWave(1, u)), C.blue, [], 2.4);
     line(L, [{ x: 0, y: 0 }, { x: x0 - eps / 2, y: 0 }, { x: x0 - eps / 2, y: amp }, { x: x0 + eps / 2, y: amp }, { x: x0 + eps / 2, y: 0 }, { x: 1, y: 0 }], C.red, [], 2.6);
     label(main.ctx, "ψ₁ (antes)", L.X(.06), L.Y(1.5) - 4, C.blue, "left", "bold 11px Ubuntu, system-ui");
-    label(main.ctx, "caixa 1/√ε (depois)", L.X(Math.min(.98, x0 + eps / 2 + .02)), L.Y(Math.min(amp, yTop * .92)), C.red, x0 > .6 ? "right" : "left", "bold 11px Ubuntu, system-ui");
+    {
+      // rótulo da caixa do lado com espaço, sem cruzar a parede; se nenhum lado couber, fica no topo, à esquerda
+      const txt = "caixa (depois)", fnt = "bold 11px Ubuntu, system-ui"; main.ctx.font = fnt;
+      const wTxt = main.ctx.measureText(txt).width, xr = L.X(x0 + eps / 2) + 6, xl = L.X(x0 - eps / 2) - 6, yy = L.Y(Math.min(amp, yTop * .92)) + 4;
+      if (xr + wTxt < L.X(1) - 4) label(main.ctx, txt, xr, yy, C.red, "left", fnt);
+      else if (xl - wTxt > L.X(0) + 4) label(main.ctx, txt, xl, yy, C.red, "right", fnt);
+      else label(main.ctx, txt, L.left + 6, L.top + 28, C.red, "left", fnt);
+    }
     // painel direito: P(Eₙ) da nova medida de H
     const pMax = Math.max(...probs, plateau) * 1.15;
-    const R = axes(main, { x: wL, y: 0, w: main.w - wL, h: main.h }, 0, N + 1, 0, pMax, "nível n da nova medida de energia", "P(Eₙ) = |cₙ|²", { xTicks: [1, 10, 20, 30, 40, 50, 60], xLabels: (x) => String(x), yDigits: 2, ticks: 5 });
+    const R = axes(main, stack ? { x: 0, y: hL, w: main.w, h: main.h - hL } : { x: wL, y: 0, w: main.w - wL, h: main.h }, 0, N + 1, 0, pMax, "nível n da nova medida de energia", "P(Eₙ) = |cₙ|²", { xTicks: [1, 10, 20, 30, 40, 50, 60], xLabels: (x) => String(x), ticks: 5 });
     probs.forEach((p, i) => bar(R, i + 1, .7, p, (i + 1) % 2 ? C.red : C.gold));
     hline(R, plateau, C.ink, [6, 4], 1.4);
     label(main.ctx, `patamar 2ε/a = ${fmt(plateau, 3)}`, R.right - 4, R.Y(plateau) - 5, C.ink, "right", "10px Ubuntu, system-ui");
@@ -99,7 +108,7 @@
     const sec = canvas("secondaryCanvas", .3), nMax = 2000;
     let s = 0; const cum = [];
     for (let n = 1; n <= nMax; n += 1) { s += P.boxCoefficient(n, x0, eps) ** 2; if (n < 10 || n % 5 === 0 || n === nMax) cum.push({ x: n, y: s }); }
-    const S = axes(sec, { x: 0, y: 0, w: sec.w, h: sec.h }, 1, nMax, 0, 1, "n (escala log)", "Σ P(E_k), k ≤ n", { logX: true, xTicks: [1, 10, 100, 1000], xLabels: (x) => String(x), yDigits: 2, ticks: 4 });
+    const S = axes(sec, { x: 0, y: 0, w: sec.w, h: sec.h }, 1, nMax, 0, 1, "n (escala log)", "Σ P(Eₖ), k ≤ n", { logX: true, xTicks: [1, 10, 100, 1000], xLabels: (x) => String(x), ticks: 4 });
     line(S, cum, C.red, [], 2.6); hline(S, .98, C.gray);
     if (Number.isFinite(tail) && tail <= nMax) { vline(S, tail, C.violet); label(sec.ctx, `0,98 em n = ${tail}`, S.X(tail) + 5, S.Y(.5), C.violet, "left", "bold 11px Ubuntu, system-ui"); }
     const c1 = P.boxCoefficient(1, x0, eps);
@@ -126,8 +135,8 @@
     const out = state.spread.outcomes, N = out.length, counts = [0, 0, 0];
     out.forEach((k) => { counts[k] += 1; });
     const sMean = N ? out.reduce((a, k) => a + E3[k], 0) / N : NaN, sSd = N > 1 ? Math.sqrt(out.reduce((a, k) => a + (E3[k] - sMean) ** 2, 0) / (N - 1)) : NaN;
-    const main = canvas("mainCanvas", .46);
-    const ch = axes(main, { x: 0, y: 0, w: main.w, h: main.h }, 0, 15.5, 0, 1, "energia E (eV)", "probabilidade / frequência", { ticks: 4, xDigits: 0, yDigits: 2, xTicks: [0, 3, 6, 9, 12, 15] });
+    const main = canvas("mainCanvas", .46, 300);
+    const ch = axes(main, { x: 0, y: 0, w: main.w, h: main.h }, 0, 15.5, 0, 1, "energia E (eV)", "probabilidade / frequência", { ticks: 4,  xTicks: [0, 3, 6, 9, 12, 15] });
     clip(ch, (c) => { c.fillStyle = "rgba(69,123,157,.12)"; c.fillRect(ch.X(Math.max(0, mean - sd)), ch.top, ch.X(Math.min(15.5, mean + sd)) - ch.X(Math.max(0, mean - sd)), ch.bottom - ch.top); });
     E3.forEach((e, i) => {
       bar(ch, e, .9, pr[i], C.red);
@@ -140,7 +149,7 @@
     // secundário: média das N medidas
     const sec = canvas("secondaryCanvas", .3);
     const nTop = Math.max(10, N);
-    const S = axes(sec, { x: 0, y: 0, w: sec.w, h: sec.h }, 1, nTop, 0, 15, "número de medidas N (log)", "média (eV)", { logX: true, xTicks: [1, 10, 100, 1000, 10000].filter((x) => x <= nTop), xLabels: (x) => String(x), yDigits: 0, ticks: 3 });
+    const S = axes(sec, { x: 0, y: 0, w: sec.w, h: sec.h }, 1, nTop, 0, 15, "número de medidas N (log)", "média (eV)", { logX: true, xTicks: [1, 10, 100, 1000, 10000].filter((x) => x <= nTop), xLabels: (x) => String(x), ticks: 3 });
     hline(S, mean, C.blue, [6, 4], 2);
     if (N) {
       const pts = []; let acc = 0;
@@ -183,40 +192,41 @@
   const ket = (t) => `|${t.nx},${t.ny}⟩`;
   function drawDegenerate() {
     ["dgC11", "dgC12", "dgC21"].forEach((id) => set(`${id}Out`, fmt(v(id), 2)));
-    const raw = [{ nx: 1, ny: 1, c: v("dgC11") }, { nx: 1, ny: 2, c: v("dgC12") }, { nx: 2, ny: 1, c: v("dgC21") }];
+    const raw = [{ nx: 1, ny: 1, c: v("dgC11") }, { nx: 1, ny: 2, c: v("dgC12") }, { nx: 2, ny: 1, c: v("dgC21") }], nullState = raw.every((t) => Math.abs(t.c) < 1e-9);
     const st = P.normalizeState(raw), m5 = P.measureDegenerate(st, 5), m2 = P.measureDegenerate(st, 2);
     const meanE = st.reduce((a, t) => a + t.c * t.c * P.energy2D(t.nx, t.ny), 0);
-    const main = canvas("mainCanvas", .5), ctx = main.ctx, size = Math.min(main.h - 70, main.w * .36), gap = (main.w - 2 * size) / 3;
+    const main = canvas("mainCanvas", .5, 220), ctx = main.ctx, size = Math.min(main.h - 70, main.w * .36), gap = (main.w - 2 * size) / 3;
     const y0 = 34;
     heatmap(ctx, gap, y0, size, st, "before");
-    label(ctx, "antes: |Ψ(x,y)|²", gap + size / 2, y0 - 12, C.ink, "center", "bold 12px Ubuntu, system-ui");
+    label(ctx, nullState ? "antes: estado nulo → |1,1⟩" : "antes: |Ψ(x,y)|²", gap + size / 2, y0 - 12, nullState ? C.red : C.ink, "center", "bold 12px Ubuntu, system-ui");
     if (m5.P > 1e-9) {
       heatmap(ctx, 2 * gap + size, y0, size, m5.post, "after");
-      label(ctx, "depois de obter E₁₂ = 5E₁: |Ψ_pós|²", 2 * gap + 1.5 * size, y0 - 12, C.red, "center", "bold 12px Ubuntu, system-ui");
+      label(ctx, main.narrow ? "depois (5E₁)" : "depois de obter E₁₂ = 5E₁: |Ψ(depois)|²", 2 * gap + 1.5 * size, y0 - 12, C.red, "center", "bold 12px Ubuntu, system-ui");
     } else {
       ctx.strokeStyle = C.faint; ctx.strokeRect(2 * gap + size, y0, size, size);
-      label(ctx, "P(E₁₂) = 0: esse resultado não ocorre", 2 * gap + 1.5 * size, y0 + size / 2, C.red, "center", "bold 12px Ubuntu, system-ui");
+      label(ctx, main.narrow ? "P(E₁₂) = 0" : "P(E₁₂) = 0: esse resultado não ocorre", 2 * gap + 1.5 * size, y0 + size / 2, C.red, "center", "bold 12px Ubuntu, system-ui");
     }
     // seta entre os mapas
     const ax = gap + size + 8, bx = 2 * gap + size - 8, ay = y0 + size / 2;
     ctx.strokeStyle = ctx.fillStyle = C.ink; ctx.lineWidth = 2; ctx.setLineDash([]); ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, ay); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(bx, ay); ctx.lineTo(bx - 9, ay - 5); ctx.lineTo(bx - 9, ay + 5); ctx.closePath(); ctx.fill();
-    label(ctx, "P̂_q Ψ/√P(q)", (ax + bx) / 2, ay - 8, C.ink, "center", "11px Ubuntu, system-ui");
+    if (bx - ax > 70) label(ctx, "P̂(q)Ψ/√P(q)", (ax + bx) / 2, ay - 8, C.ink, "center", "11px Ubuntu, system-ui");
+    else label(ctx, "P̂(q)", (ax + bx) / 2, ay - 8, C.ink, "center", "bold 11px Ubuntu, system-ui");
     // secundário: diagrama de níveis com |c|²
     const sec = canvas("secondaryCanvas", .3);
-    const S = axes(sec, { x: 0, y: 0, w: sec.w, h: sec.h }, 0, 4, 0, 1, "autoestados de energia (E/E₁)", "|c|² e P(E)", { xTicks: [.8, 2, 3.2], xLabels: (x) => (x < 1 ? "|1,1⟩ · E = 2E₁" : x < 2.5 ? "|1,2⟩ · E = 5E₁" : "|2,1⟩ · E = 5E₁"), yDigits: 2, ticks: 4 });
+    const S = axes(sec, { x: 0, y: 0, w: sec.w, h: sec.h }, 0, 4, 0, 1, "autoestados (nx, ny), com a energia de cada um", "|c|² e P(E)", { xTicks: [.8, 2, 3.2], xLabels: (x) => (x < 1 ? "|1,1⟩ · E = 2E₁" : x < 2.5 ? "|1,2⟩ · E = 5E₁" : "|2,1⟩ · E = 5E₁"), ticks: 4 });
     const p11 = st[0].c ** 2, p12 = st[1].c ** 2, p21 = st[2].c ** 2;
     bar(S, .8, .5, p11, C.blue); bar(S, 2, .5, p12, C.red); bar(S, 3.2, .5, p21, C.gold);
     clip(S, (c) => { c.strokeStyle = C.ink; c.lineWidth = 2; c.setLineDash([6, 4]); c.strokeRect(S.X(1.6), S.Y(m5.P), S.X(3.6) - S.X(1.6), S.Y(0) - S.Y(m5.P)); });
     label(sec.ctx, `P(E₁₂) = ${fmt(p12, 3)} + ${fmt(p21, 3)} = ${fmt(m5.P, 3)}`, S.X(2.6), Math.max(S.top + 12, S.Y(m5.P) - 6), C.ink, "center", "bold 11px Ubuntu, system-ui");
     const post = m5.post, a12 = post[0] ? post[0].c : NaN, a21 = post[1] ? post[1].c : NaN;
-    texts({ status: "Degenerescência", detail: `P(E₁₂) = ${fmt(m5.P, 3)}`,
+    texts({ status: "Degenerescência", detail: nullState ? "estado nulo: usando |1,1⟩" : `P(E₁₂) = ${fmt(m5.P, 3)}`,
       title: "Regra de Born com projetor num autovalor degenerado", subtitle: "|1,2⟩ e |2,1⟩ têm a mesma energia 5E₁: a medida não distingue entre eles",
       caption: "Mapa de |Ψ|² no quadrado (escuro = densidade alta). À direita, o estado depois de uma medida de energia que deu 5E₁: a componente |1,1⟩ some, e as componentes |1,2⟩ e |2,1⟩ ficam na mesma proporção (e com o mesmo sinal relativo) que tinham antes.",
       secondaryTitle: "Pesos na base de energia", secondarySubtitle: "a caixa tracejada soma o autoespaço degenerado: P(E₁₂) = ⟨Ψ|P̂_q|Ψ⟩",
       secondaryCaption: "Para g = 1 (|1,1⟩), a regra volta a ser P = |c|². Para g = 2, soma-se sobre o autoespaço, e o estado pós-medida é a projeção normalizada, não um dos kets.",
       prediction: "Em ½|1,1⟩ + (1/√2)|1,2⟩ + ½|2,1⟩, a medida de energia dá 5E₁. O estado depois é |1,2⟩, |2,1⟩, ou outra coisa? E qual é P(5E₁): ½, ¼ ou ¾?",
-      calculation: `P(E₁₂) = |⟨1,2|Ψ⟩|² + |⟨2,1|Ψ⟩|² = ${fmt(p12, 3)} + ${fmt(p21, 3)} = <b>${fmt(m5.P, 3)}</b><br>${m5.P > 1e-9 ? `Ψ_pós = (${fmt(st[1].c, 3)}|1,2⟩ + ${fmt(st[2].c, 3)}|2,1⟩)/√${fmt(m5.P, 3)} = <b>${fmt(a12, 3)}|1,2⟩ ${a21 < 0 ? "−" : "+"} ${fmt(Math.abs(a21), 3)}|2,1⟩</b>` : "P(E₁₂) = 0: não há estado pós-medida"}<small>P̂_q = |1,2⟩⟨1,2| + |2,1⟩⟨2,1|, P̂_q² = P̂_q</small>`,
+      calculation: `${nullState ? `<span class="warn">Estado nulo: as três amplitudes são 0 e não definem um estado; a conta usa |1,1⟩ (convenção da aplicação). Aumente alguma amplitude.</span><br>` : ""}P(E₁₂) = |⟨1,2|Ψ⟩|² + |⟨2,1|Ψ⟩|² = ${fmt(p12, 3)} + ${fmt(p21, 3)} = <b>${fmt(m5.P, 3)}</b><br>${m5.P > 1e-9 ? `Ψ_pós = (${fmt(st[1].c, 3)}|1,2⟩ + ${fmt(st[2].c, 3)}|2,1⟩)/√${fmt(m5.P, 3)} = <b>${fmt(a12, 3)}|1,2⟩ ${a21 < 0 ? "−" : "+"} ${fmt(Math.abs(a21), 3)}|2,1⟩</b>` : "P(E₁₂) = 0: não há estado pós-medida"}<small>P̂_q = |1,2⟩⟨1,2| + |2,1⟩⟨2,1|, P̂_q² = P̂_q</small>`,
       metrics: [["P(E₁₁ = 2E₁)", fmt(m2.P, 3)], ["P(E₁₂ = 5E₁)", fmt(m5.P, 3)], ["Ψ_pós: coeficiente de |1,2⟩", fmt(a12, 3)], ["Ψ_pós: coeficiente de |2,1⟩", fmt(a21, 3)], ["só |⟨1,2|Ψ⟩|² (esquece a degenerescência)", fmt(p12, 3)], ["⟨H⟩", `${fmt(meanE, 3)} E₁`]],
       concept: "Quando o autovalor é degenerado, a medida informa só o autoespaço: P(q) = ⟨Ψ|P̂_q|Ψ⟩ soma sobre os g estados, e o estado pós-medida P̂_qΨ/√P(q) preserva as proporções dentro do autoespaço. Em 1D, com estados ligados, isso não acontece (Aula 4); em 2D e 3D é a regra (hidrogênio, Aula 23).",
       prompts: ["Carregue o exemplo da nota: confira P = ¾ e Ψ_pós = √(2/3)|1,2⟩ + √(1/3)|2,1⟩.", "Carregue o exercício (|1,1⟩ + |1,2⟩ − |2,1⟩)/√3: o sinal relativo sobrevive à medida? Compare os dois mapas.", "Zere |1,2⟩ e |2,1⟩: o que a tela diz sobre o resultado 5E₁?"],
@@ -231,18 +241,18 @@
     const psi = P.parityState(kind, x0, w), pp = P.parityProbabilities(psi, 1600), csAll = P.symCoefficients(psi, 40, 1600), cs = csAll.slice(0, 12);
     const oddSum = csAll.reduce((a, c, i) => a + (i % 2 === 0 ? c * c : 0), 0);
     const yMax = Math.max(1.6, ...samples(-.5, .5, 200, (s) => Math.abs(psi(s))).map((p) => p.y)) * 1.12;
-    const main = canvas("mainCanvas", .46);
-    const ch = axes(main, { x: 0, y: 0, w: main.w, h: main.h }, -.6, .6, -yMax, yMax, "posição x/a", "ψ (unid. 1/√a)", { ticks: 6, xDigits: 1, yDigits: 1 });
+    const main = canvas("mainCanvas", .46, 300);
+    const ch = axes(main, { x: 0, y: 0, w: main.w, h: main.h }, -.6, .6, -yMax, yMax, "posição x/a", "ψ (unid. 1/√a)", { ticks: 6 });
     walls(ch, -.5, .5); hline(ch, 0, C.gray, [], 1); vline(ch, 0, C.gray, [2, 3], 1);
     line(ch, samples(-.5, .5, 400, (s) => psi(-s)), C.gray, [5, 4], 1.8);
     line(ch, samples(-.5, .5, 400, pp.even), C.blue, [], 2.4);
     line(ch, samples(-.5, .5, 400, pp.odd), C.gold, [], 2.4);
     line(ch, samples(-.5, .5, 400, psi), C.red, [], 3);
     // secundário: P(±1) e |cₙ|² com a paridade de cada ψₙ
-    const sec = canvas("secondaryCanvas", .3), wA = sec.w * .3;
-    const A = axes(sec, { x: 0, y: 0, w: wA, h: sec.h }, 0, 3, 0, 1, "autovalor de Π̂", "P", { xTicks: [1, 2], xLabels: (x) => (x === 1 ? "+1" : "−1"), yDigits: 2, ticks: 4 });
+    const sec = canvas("secondaryCanvas", .3, 420), stk = sec.narrow, wA = stk ? sec.w : sec.w * .3, hA = stk ? sec.h * .42 : sec.h;
+    const A = axes(sec, { x: 0, y: 0, w: wA, h: hA }, 0, 3, 0, 1, "autovalor de Π̂", "P", { xTicks: [1, 2], xLabels: (x) => (x === 1 ? "+1" : "−1"), ticks: 4 });
     bar(A, 1, .6, pp.pPlus, C.blue); bar(A, 2, .6, pp.pMinus, C.gold);
-    const B = axes(sec, { x: wA, y: 0, w: sec.w - wA, h: sec.h }, 0, 13, 0, 1, "nível n (azul: par, π = +1; dourado: ímpar, π = −1)", "|cₙ|²", { xTicks: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], xLabels: (x) => String(x), yDigits: 2, ticks: 4 });
+    const B = axes(sec, stk ? { x: 0, y: hA, w: sec.w, h: sec.h - hA } : { x: wA, y: 0, w: sec.w - wA, h: sec.h }, 0, 13, 0, 1, "nível n (azul: ψₙ par, n ímpar · dourado: ψₙ ímpar, n par)", "|cₙ|²", { xTicks: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], xLabels: (x) => String(x), ticks: 4 });
     cs.forEach((c, i) => bar(B, i + 1, .6, c * c, P.parityOf(i + 1) > 0 ? C.blue : C.gold));
     texts({ status: "Paridade", detail: kind === "packet" ? `x₀ = ${fmt(x0, 2)}a · σ = ${fmt(w, 2)}a` : "(ψ₁ + ψ₂)/√2",
       title: "Paridade como observável: ψ = ψ_par + ψ_ímpar", subtitle: "vermelho: ψ(x) · cinza tracejado: Π̂ψ = ψ(−x) · azul: ψ_par · dourado: ψ_ímpar",
@@ -262,22 +272,31 @@
     const Gmt = v("mriG"), tms = v("mriT"), smm = v("mriS");
     set("mriGOut", fmt(Gmt, 1)); set("mriTOut", fmt(tms, 1)); set("mriSOut", fmt(smm, 1));
     const k = P.kMaxPerM(Gmt * 1e-3, tms * 1e-3), dxMm = P.resolutionM(k) * 1e3, dd = dxMm < .1 ? 3 : 2, bands = P.phantom(smm * 1e-3), res = P.resolved(bands, k, smm * 1e-3);
-    const main = canvas("mainCanvas", .46);
-    const ch = axes(main, { x: 0, y: 0, w: main.w, h: main.h }, -12, 12, -.3, 1.5, "posição x (mm)", "densidade de prótons ρ (relativa)", { ticks: 6, xDigits: 0, yDigits: 1 });
+    const main = canvas("mainCanvas", .46, 300);
+    const ch = axes(main, { x: 0, y: 0, w: main.w, h: main.h }, -12, 12, -.3, 1.5, "posição x (mm)", "densidade de prótons ρ (relativa)", { xTicks: main.narrow ? [-12, -6, 0, 6, 12] : [-12, -8, -4, 0, 4, 8, 12], ticks: 5 });
     hline(ch, 0, C.gray, [], 1);
     area(ch, samples(-12, 12, 1200, (x) => P.rho(bands, x * 1e-3)), "rgba(111,113,113,.22)");
     line(ch, samples(-12, 12, 1200, (x) => P.reconstruct(bands, k, x * 1e-3)), C.red, [], 2.6);
     // barra de escala Δx
-    const yb = 1.22, xa = 6.5;
-    clip(ch, (c) => { c.strokeStyle = C.blue; c.lineWidth = 3; c.setLineDash([]); c.beginPath(); c.moveTo(ch.X(xa), ch.Y(yb)); c.lineTo(ch.X(Math.min(12, xa + dxMm)), ch.Y(yb)); c.stroke(); });
-    label(main.ctx, `Δx = ${fmt(dxMm, dd)} mm`, ch.X(xa), ch.Y(yb) - 7, C.blue, "left", "bold 11px Ubuntu, system-ui");
+    // régua de Δx encostada na direita; se Δx > 23 mm (janela de 24 mm), ocupa a janela toda e o rótulo avisa
+    const yb = 1.22, xr = 11.5, tooLong = dxMm > 23, xl = tooLong ? -11.5 : xr - dxMm;
+    clip(ch, (c) => { c.strokeStyle = C.blue; c.lineWidth = 3; c.setLineDash([]); c.beginPath(); c.moveTo(ch.X(xl), ch.Y(yb)); c.lineTo(ch.X(xr), ch.Y(yb)); c.stroke(); if (tooLong) { c.fillStyle = C.blue; c.beginPath(); c.moveTo(ch.X(xr) + 4, ch.Y(yb)); c.lineTo(ch.X(xr) - 6, ch.Y(yb) - 5); c.lineTo(ch.X(xr) - 6, ch.Y(yb) + 5); c.closePath(); c.fill(); } });
+    label(main.ctx, tooLong ? `Δx = ${fmt(dxMm, dd)} mm (> 23 mm: régua maior que a janela)` : `Δx = ${fmt(dxMm, dd)} mm`, ch.X(xr), ch.Y(yb) - 7, C.blue, "right", "bold 11px Ubuntu, system-ui");
     // secundário: S(k)
-    const sec = canvas("secondaryCanvas", .3), kPlot = Math.max(1500, 1.5 * k), S0 = P.signal(bands, 0);
-    const S = axes(sec, { x: 0, y: 0, w: sec.w, h: sec.h }, -kPlot, kPlot, -.4, 1, "frequência espacial k (m⁻¹)", "S(k)/S(0)", { ticks: 7, xDigits: 0, yDigits: 1 });
+    const sec = canvas("secondaryCanvas", .3, 240), kPlot = Math.max(1500, 1.5 * k), S0 = P.signal(bands, 0);
+    // marcas redondas com 0 e ±k_max; descarta a marca redonda que ficaria a menos de 12 % do vão de ±k_max (rótulos sobrepostos)
+    const kTicks = [...P.niceTicks(-kPlot, kPlot, sec.narrow ? 4 : 6).ticks.filter((q) => Math.abs(Math.abs(q) - k) > 0.12 * kPlot), -k, k].sort((a, b) => a - b);
+    const S = axes(sec, { x: 0, y: 0, w: sec.w, h: sec.h }, -kPlot, kPlot, -.4, 1, "frequência espacial k (m⁻¹)", "S(k)/S(0)", { xTicks: kTicks, xLabels: (q) => fmt(q, 0), yTicks: [-.4, 0, .5, 1], yDigits: 1 });
     clip(S, (c) => { c.fillStyle = "rgba(69,123,157,.14)"; c.fillRect(S.X(-k), S.top, S.X(k) - S.X(-k), S.bottom - S.top); });
     line(S, samples(-kPlot, kPlot, 3000, (q) => P.signal(bands, q) / S0), C.violet, [], 1.6);
     vline(S, -k, C.blue, [], 1.6); vline(S, k, C.blue, [], 1.6);
-    label(sec.ctx, `±k_max = ±${fmt(k, 0)} m⁻¹`, S.X(k) + 5, S.top + 12, C.blue, "left", "bold 11px Ubuntu, system-ui");
+    {
+      // "±k_max = ±426 m⁻¹" com índice rebaixado; do lado da faixa com espaço
+      const c = sec.ctx, f1 = "bold 11px Ubuntu, system-ui", f2 = "bold 8px Ubuntu, system-ui", pre = "±k", sub = "max", post = ` = ±${fmt(k, 0)} m⁻¹`;
+      c.font = f1; const w1 = c.measureText(pre).width, w3 = c.measureText(post).width; c.font = f2; const w2 = c.measureText(sub).width, tot = w1 + w2 + w3;
+      let x = S.X(k) + 6; if (x + tot > S.right) x = S.X(k) - 6 - tot;
+      c.fillStyle = C.blue; c.textAlign = "left"; c.font = f1; c.fillText(pre, x, S.top + 12); c.font = f2; c.fillText(sub, x + w1, S.top + 15); c.font = f1; c.fillText(post, x + w1 + w2, S.top + 12);
+    }
     texts({ status: "Física médica: espaço k", detail: `G = ${fmt(Gmt, 1)} mT/m · t = ${fmt(tms, 1)} ms`,
       title: "Imagem de RM como expansão truncada em ondas planas", subtitle: "cinza: objeto ρ(x) · vermelho: reconstrução com |k| ≤ k_max",
       caption: "A reconstrução é a expansão de ρ(x) na base contínua e^(2πikx), cortada em k_max. Com k_max pequeno, as duas estruturas se fundem; as oscilações perto das bordas são o efeito do corte (o mesmo da soma parcial de Fourier da Aula 5).",
@@ -309,6 +328,7 @@
     mri: { mriG: 10, mriT: 1, mriS: 2 },
   };
   document.querySelectorAll("[data-view]").forEach((b) => b.addEventListener("click", () => switchView(b.dataset.view)));
+  ["spW1", "spW2", "spW3"].forEach((id) => $(id).addEventListener("input", () => { state.spread.outcomes = []; }));  // antes do render: medidas antigas descrevem outro estado
   document.querySelectorAll("input, select").forEach((e) => e.addEventListener("input", render));
   document.querySelectorAll("[data-shots]").forEach((b) => b.addEventListener("click", () => shoot(Number(b.dataset.shots))));
   $("spClear").addEventListener("click", () => { state.spread.outcomes = []; render(); });
@@ -327,5 +347,6 @@
   });
   let resizeTimer = null;
   window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(render, 80); });
+  new URLSearchParams(location.search).forEach((value, key) => { const el = $(key); if (el && key !== "view" && (el.tagName === "INPUT" || el.tagName === "SELECT")) el.value = value; });
   switchView(view);
 })();

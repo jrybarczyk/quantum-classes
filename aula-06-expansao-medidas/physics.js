@@ -173,16 +173,31 @@
     return bands.reduce((acc, b) => acc + (b.height / PI) *
       (sineIntegral(2 * PI * kMax * (xM - b.centerM + b.widthM / 2)) - sineIntegral(2 * PI * kMax * (xM - b.centerM - b.widthM / 2))), 0);
   }
-  // Critério de "dois picos": a reconstrução em x = 0 (entre as estruturas) fica abaixo
-  // do valor nos centros ±sep/2, isto é, há um vale (critério operacional da aplicação,
-  // não da nota). dip = 1 − ρ_K(0)/ρ_K(sep/2).
+  // Critério de "dois picos" (critério operacional da aplicação, não da nota), revisto em 2026-11-15:
+  // a reconstrução tem de ter um máximo local interior perto de cada estrutura (em x ∈ [s/4, 3s/4],
+  // e por simetria em −x) e um vale em x = 0 mais fundo que 2 % do pico: dip = 1 − ρ_K(0)/ρ_K(x_pico) > 0,02.
+  // Antes bastava dip > 0, e o ripple de Gibbs da faixa de 16 mm dava "vale" espúrio num platô liso.
   function resolved(bands, kMax, sepM) {
-    const mid = reconstruct(bands, kMax, 0), peak = reconstruct(bands, kMax, sepM / 2);
-    const dip = peak > 0 ? 1 - mid / peak : 0;
-    return { dip, resolved: dip > 0 };
+    const lo = sepM / 4, hi = 3 * sepM / 4, n = 240, mid = reconstruct(bands, kMax, 0);
+    const y = Array.from({ length: n + 1 }, (_, i) => reconstruct(bands, kMax, lo + (hi - lo) * i / n));
+    let peak = -Infinity, hasPeak = false;
+    for (let i = 1; i < n; i += 1) if (y[i] > y[i - 1] && y[i] >= y[i + 1] && y[i] > peak) { peak = y[i]; hasPeak = true; }
+    const dip = hasPeak && peak > 0 ? 1 - mid / peak : 0;
+    return { dip, resolved: hasPeak && dip > 0.02, hasPeak };
+  }
+
+  // ------------------------------------------------------------------ eixos
+  // Marcas "redondas" (passos 1, 2, 5 × 10ᵏ), incluindo 0 quando está no intervalo.
+  // Casas decimais do rótulo: max(0, −floor(log10(step))).
+  function niceTicks(min, max, target = 5) {
+    const span = max - min, raw = span / Math.max(1, target), p = 10 ** Math.floor(Math.log10(raw)), f = raw / p;
+    const step = (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * p, out = [];
+    for (let v = Math.ceil(min / step - 1e-9) * step; v <= max + step * 1e-9; v += step) out.push(Math.abs(v) < step * 1e-9 ? 0 : Number(v.toFixed(12)));
+    return { step, ticks: out, decimals: Math.max(0, -Math.floor(Math.log10(step) + 1e-9)) };
   }
 
   const api = {
+    niceTicks,
     integrate, boxWave, boxCoefficient, boxProbabilities, boxTailIndex, intervalProbability, boxPlateau,
     normalize, expectation, sigma, SI, levelEV, beatPeriodFs, sample,
     energy2D, wave2D, normalizeState, measureDegenerate, density2D,

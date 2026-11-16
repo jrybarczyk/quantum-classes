@@ -37,6 +37,7 @@ h1 { margin: 0; font-size: clamp(2rem, 3.4vw, 3.4rem); line-height: .98; letter-
 .panel-title, .chart-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .panel-title { padding-bottom: 12px; border-bottom: 1px solid var(--line); }
 h2 { margin: 0; color: var(--gray); font-size: .74rem; letter-spacing: .12em; text-transform: uppercase; }
+.chart-heading h2, .sym { text-transform: none; }
 #resetBtn { padding: 5px 8px; border: 1px solid var(--line); border-radius: 5px; background: #fff; color: var(--muted); font-size: .7rem; cursor: pointer; }
 .view-controls { display: none; }
 .view-controls.active { display: block; }
@@ -93,3 +94,7 @@ footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8p
 .state-select { margin: 12px 0; }
 .calculation small { display: block; margin-top: 4px; color: var(--muted); font-size: .7rem; }
 .calculation .limit { margin-top: 8px; padding: 6px 8px; border-left: 3px solid #c65c4b; background: #fff6f3; font-family: system-ui, sans-serif; font-size: .68rem; text-align: left; }
+.view-controls label.check { display: flex; align-items: center; gap: 8px; }
+.view-controls label.check input { width: auto; grid-column: auto; }
+.calculation .warn { color: #a4372a; font-weight: 700; }
+@media (max-width: 600px) { .legend { font-size: .64rem; } }

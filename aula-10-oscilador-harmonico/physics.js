@@ -216,7 +216,19 @@
   // Potencial V(x) = (1/2) mu omega^2 x^2 = (1/2) hbar omega (x/l)^2, em eV.
   function potentialEV(xPm, lPm, hbarOmegaEV_) { return hbarOmegaEV_ / 2 * (xPm / lPm) ** 2; }
 
+
+  // Marcas "bonitas" de eixo (passos 1, 2, 5 × 10^k), com 0 e valores redondos;
+  // casas decimais do rótulo = tickDecimals(step). Extensão didática (não está na nota).
+  function niceTicks(min, max, target = 5) {
+    const span = max - min, raw = span / Math.max(1, target), p = 10 ** Math.floor(Math.log10(raw)), f = raw / p;
+    const step = (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * p, out = [];
+    for (let v = Math.ceil(min / step - 1e-9) * step; v <= max + step * 1e-9; v += step) out.push(Math.abs(v) < step * 1e-9 ? 0 : Number(v.toFixed(12)));
+    return { step, ticks: out };
+  }
+  function tickDecimals(step) { return Math.max(0, -Math.floor(Math.log10(step) + 1e-9)); }
+
   return {
+    niceTicks, tickDecimals,
     shoot, nearestAllowed, hermite, psi, density, energy, turningPoint, classicalDensity,
     simpson, outsideProbability, overlap, norm, meanXi2, countNodes, localAverage,
     PAIRS, HC_EV_NM, HBARC_EV_NM, U_C2_EV, KB_EV_K,

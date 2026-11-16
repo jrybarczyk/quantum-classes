@@ -10,3 +10,5 @@
 @media (max-width: 760px) { .tabs { grid-template-columns: 1fr 1fr; } }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
 .calculation small { display: block; margin-top: 4px; color: var(--muted); font-size: .7rem; }
+/* Celular: o painel secundário não é achatado pelo teto de altura do dashboard (a altura do canvas já tem mínimo). */
+@media (max-width: 600px) { .secondary-panel canvas { max-height: none; } }

@@ -9,31 +9,37 @@
   let view = new URLSearchParams(location.search).get("view");
   if (!VIEWS.includes(view)) view = "separation";
 
-  const fmt = (x, n = 2) => Number(x).toLocaleString("pt-BR", { minimumFractionDigits: n, maximumFractionDigits: n });
+  const fmt = (x, n = 2) => P.formatPt(x, n);
+  const piLabel = (x) => { const q = Math.round(x / Math.PI * 2); return q === 0 ? "0" : `${q < 0 ? "−" : ""}${Math.abs(q) === 1 ? "π/2" : "π"}`; };
+  const PI_TICKS = [-Math.PI, -Math.PI / 2, 0, Math.PI / 2, Math.PI];
+  const sub = (n) => String(n).replace(/\d/g, (d) => "₀₁₂₃₄₅₆₇₈₉"[d]);
   const v = (id) => Number($(id).value);
   const set = (id, text) => { $(id).textContent = text; };
   const html = (id, content) => { $(id).innerHTML = content; };
   const samples = (a, b, n, fn) => Array.from({ length: n }, (_, i) => { const x = a + i * (b - a) / (n - 1); return { x, y: fn(x) }; });
 
   // ---------------------------------------------------------------- desenho
-  function canvas(id, aspect) {
-    const el = $(id), ratio = Math.max(1, Math.min(2, devicePixelRatio || 1)), w = el.clientWidth || 900, h = w * aspect;
+  // Em telas estreitas (< 600 px) a altura tem um mínimo, para os gráficos não ficarem espremidos.
+  function canvas(id, aspect, minNarrow) {
+    const el = $(id), ratio = Math.max(1, Math.min(2, devicePixelRatio || 1)), w = el.clientWidth || 900, h = Math.max(w * aspect, w < 600 ? (minNarrow ?? (id === "mainCanvas" ? 330 : 300)) : 0);
     el.width = w * ratio; el.height = h * ratio;
     const ctx = el.getContext("2d"); ctx.scale(ratio, ratio);
     ctx.fillStyle = "#fbfcfa"; ctx.fillRect(0, 0, w, h);
-    return { ctx, w, h };
+    return { ctx, w, h, narrow: w < 600 };
   }
-  // Eixos dentro de uma região {x, y, w, h} do canvas.
+  // Eixos dentro de uma região {x, y, w, h} do canvas. Marcas "bonitas" (P.niceTicks) ou lista
+  // explícita (o.xTicks, o.yTicks; [] = sem marcas); rótulos com as casas que o passo pede.
   function axes(target, box, xMin, xMax, yMin, yMax, xLabel, yLabel, o = {}) {
     const ctx = target.ctx, left = box.x + 52, right = box.x + box.w - 14, top = box.y + 18, bottom = box.y + box.h - 38;
     const X = (x) => left + (x - xMin) * (right - left) / (xMax - xMin), Y = (y) => bottom - (y - yMin) * (bottom - top) / (yMax - yMin);
-    ctx.font = "10px Ubuntu, system-ui"; ctx.lineWidth = 1;
-    for (let i = 0; i <= (o.ticks ?? 5); i += 1) {
-      const n = o.ticks ?? 5, x = xMin + i * (xMax - xMin) / n, y = yMin + i * (yMax - yMin) / n;
-      ctx.strokeStyle = C.grid; ctx.beginPath(); ctx.moveTo(X(x), top); ctx.lineTo(X(x), bottom); ctx.moveTo(left, Y(y)); ctx.lineTo(right, Y(y)); ctx.stroke();
-      ctx.fillStyle = C.gray; ctx.textAlign = "center"; ctx.fillText(o.xLabels ? o.xLabels(x) : fmt(x, o.xDigits ?? 1), X(x), bottom + 14);
-      ctx.textAlign = "right"; ctx.fillText(fmt(y, o.yDigits ?? 1), left - 6, Y(y) + 3);
-    }
+    const nx = Math.max(2, Math.min(o.ticks ?? 5, Math.floor((right - left) / 58))), ny = Math.max(2, Math.min(o.ticks ?? 5, Math.floor((bottom - top) / 34)));
+    const xs = o.xTicks || P.niceTicks(xMin, xMax, nx).ticks, ys = o.yTicks || P.niceTicks(yMin, yMax, ny).ticks;
+    const xd = P.listDigits(xs), yd = P.listDigits(ys);
+    ctx.font = "10px Ubuntu, system-ui"; ctx.lineWidth = 1; ctx.strokeStyle = C.grid;
+    ctx.beginPath(); xs.forEach((x) => { ctx.moveTo(X(x), top); ctx.lineTo(X(x), bottom); }); ys.forEach((y) => { ctx.moveTo(left, Y(y)); ctx.lineTo(right, Y(y)); }); ctx.stroke();
+    ctx.fillStyle = C.gray;
+    if (!o.noX) { ctx.textAlign = "center"; xs.forEach((x) => ctx.fillText(o.xLabels ? o.xLabels(x) : fmt(x, xd), X(x), bottom + 14)); }
+    if (!o.noY) { ctx.textAlign = "right"; ys.forEach((y) => ctx.fillText(fmt(y, yd), left - 6, Y(y) + 3)); }
     ctx.strokeStyle = C.gray; ctx.beginPath(); ctx.moveTo(left, bottom); ctx.lineTo(right, bottom); ctx.moveTo(left, top); ctx.lineTo(left, bottom); ctx.stroke();
     ctx.fillStyle = C.gray; ctx.font = "11px Ubuntu, system-ui"; ctx.textAlign = "center"; ctx.fillText(xLabel, (left + right) / 2, box.y + box.h - 6);
     ctx.save(); ctx.translate(box.x + 12, (top + bottom) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(yLabel, 0, 0); ctx.restore();
@@ -73,8 +79,8 @@
   // ---------------------------------------------------------------- textos
   function texts(d) {
     set("statusTitle", d.status); set("statusDetail", d.detail);
-    set("mainTitle", d.title); set("mainSubtitle", d.subtitle); set("caption", d.caption);
-    set("secondaryTitle", d.secondaryTitle); set("secondarySubtitle", d.secondarySubtitle); set("secondaryCaption", d.secondaryCaption);
+    set("mainTitle", d.title); html("mainSubtitle", d.subtitle); html("caption", d.caption);
+    set("secondaryTitle", d.secondaryTitle); html("secondarySubtitle", d.secondarySubtitle); html("secondaryCaption", d.secondaryCaption);
     set("prediction", d.prediction); html("calculation", d.calculation);
     html("metrics", d.metrics.map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join(""));
     set("conceptTitle", d.conceptTitle || "Ideia física"); set("conceptText", d.concept);
@@ -84,9 +90,9 @@
 
   // ---------------------------------------------------------------- estado
   const state = {
-    playing: null, last: 0,
+    playing: null, last: 0, anim: 0,
     counts: { 1: 0, 2: 0 },
-    vmin: { psi: null, history: [], relaxing: false, tau: 0 },
+    vmin: { psi: null, history: [], relaxing: false, tau: 0, converged: false },
   };
   const grid = P.makeGrid();
 
@@ -94,7 +100,7 @@
   function drawSeparation() {
     const n = v("sepN"), t = v("sepT"), E = P.energyLevel(n), T = P.phase(E, t);
     set("sepNOut", n); set("sepTOut", fmt(t, 2));
-    const main = canvas("mainCanvas", .5), chart = axes(main, { x: 0, y: 0, w: main.w, h: main.h }, -Math.PI, Math.PI, -.75, .85, "coordenada periódica θ", "Ψ(θ,t)", { xLabels: (x) => fmt(x / Math.PI, 1) + "π" });
+    const main = canvas("mainCanvas", .5), chart = axes(main, { x: 0, y: 0, w: main.w, h: main.h }, -Math.PI, Math.PI, -.75, .85, "coordenada periódica θ", "Ψ(θ,t)", { xTicks: PI_TICKS, xLabels: piLabel });
     area(chart, samples(-Math.PI, Math.PI, 360, (th) => P.ringDensity(th, n)), "rgba(69,123,157,.13)");
     line(chart, samples(-Math.PI, Math.PI, 360, (th) => P.ringWave(th, n) * T.re), C.green);
     line(chart, samples(-Math.PI, Math.PI, 360, (th) => P.ringWave(th, n) * T.im), C.gold, [7, 4], 2.2);
@@ -114,10 +120,10 @@
     dot(ctx, wave.X(t), wave.Y(T.re), C.green, 5); dot(ctx, wave.X(t), wave.Y(T.im), C.gold, 5);
     texts({ status: "Separação", detail: `n = ${n} · Eₙ = ${E}E₁`, title: "Separação em um sistema periódico", subtitle: "a forma espacial fica; só o fator temporal gira",
       caption: "Verde: Re Ψ; dourado: Im Ψ; azul claro: |Ψ|². A fita no alto é colorida pela fase de Ψ: a cor toda gira junto, porque a fase temporal é a mesma em todo θ. Onde ψₙ troca de sinal, a cor salta meia volta.",
-      secondaryTitle: "Fator temporal no plano complexo", secondarySubtitle: "T(t) = e^(−iEₙt/ℏ) gira com |T| = 1",
+      secondaryTitle: "Fator temporal no plano complexo", secondarySubtitle: "T(t) = e<sup>−iEₙt/ℏ</sup> gira com |T| = 1",
       secondaryCaption: "O fasor dá uma volta a cada 2πℏ/Eₙ; suas projeções nos eixos são Re T e Im T, desenhadas à direita no tempo. Níveis mais altos giram mais depressa.",
       prediction: "Se n passa de 1 para 3, o fasor gira mais rápido ou mais devagar? A densidade azul muda com o tempo?",
-      calculation: `iℏ T′ = E T ⇒ T(t) = e<sup>−iEt/ℏ</sup><br><b>fase = −Eₙt/ℏ = −${fmt(E * t, 2)} rad</b><br><small>período 2πℏ/Eₙ = ${fmt(TAU / E, 3)} ℏ/E₁</small>`,
+      calculation: `iℏ T′ = E T ⇒ T(t) = e<sup>−iEt/ℏ</sup><br><b>fase = −Eₙt/ℏ = ${fmt(-E * t, 2)} rad</b><br><small>período 2πℏ/Eₙ = ${fmt(TAU / E, 3)} ℏ/E₁</small>`,
       metrics: [["n", n], ["Eₙ/E₁", E], ["|T(t)|²", "1,000"], ["período", `${fmt(TAU / E, 3)} ℏ/E₁`]],
       concept: "Com V independente do tempo, Ψ = ψ(x)T(t) separa a equação em duas: a espacial Hψ = Eψ e a temporal iℏT′ = ET. Toda a evolução fica num fator de fase de módulo 1.",
       prompts: ["Compare os períodos do fasor para n = 1, 2 e 3: a razão segue n²?", "Pare num instante em que Re Ψ some inteira: o que vale Im Ψ ali?", "Por que essa separação exigiria mudar se V dependesse de t?"],
@@ -128,13 +134,13 @@
   function drawStationary() {
     const n = v("statN"), t = v("statT"), E = P.energyLevel(n), T = P.phase(E, t);
     set("statNOut", n); set("statTOut", fmt(t, 2));
-    const main = canvas("mainCanvas", .5), chart = axes(main, { x: 0, y: 0, w: main.w, h: main.h }, -Math.PI, Math.PI, -.62, .62, "coordenada periódica θ", "Re Ψ e |Ψ|²", { xLabels: (x) => fmt(x / Math.PI, 1) + "π" });
+    const main = canvas("mainCanvas", .5), chart = axes(main, { x: 0, y: 0, w: main.w, h: main.h }, -Math.PI, Math.PI, -.62, .62, "coordenada periódica θ", "Re Ψ e |Ψ|²", { xTicks: PI_TICKS, xLabels: piLabel });
     area(chart, samples(-Math.PI, Math.PI, 360, (th) => P.ringDensity(th, n)), "rgba(69,123,157,.22)");
     line(chart, samples(-Math.PI, Math.PI, 360, (th) => P.ringDensity(th, n)), C.blue, [], 2);
     for (let k = 8; k >= 1; k -= 1) line(chart, samples(-Math.PI, Math.PI, 240, (th) => P.ringWave(th, n) * Math.cos(E * (t - k * .045))), C.green, [], 1.4, .09 * (9 - k));
     line(chart, samples(-Math.PI, Math.PI, 360, (th) => P.ringWave(th, n) * T.re), C.green, [], 3);
     const sec = canvas("secondaryCanvas", .34), half = sec.w / 2;
-    const d0 = axes(sec, { x: 0, y: 0, w: half, h: sec.h }, -Math.PI, Math.PI, 0, .36, "θ", "|Ψ|²", { ticks: 4, xLabels: (x) => fmt(x / Math.PI, 1) + "π", yDigits: 2 });
+    const d0 = axes(sec, { x: 0, y: 0, w: half, h: sec.h }, -Math.PI, Math.PI, 0, .36, "θ", "|Ψ|²", { ticks: 4, xTicks: PI_TICKS, xLabels: piLabel });
     line(d0, samples(-Math.PI, Math.PI, 300, (th) => P.ringDensity(th, n)), C.blue, [], 3);
     line(d0, samples(-Math.PI, Math.PI, 300, (th) => P.ringDensity(th, n)), C.gold, [7, 4], 2);
     // à direita: valor em θ = 0 no tempo — Re Ψ oscila, |Ψ|² é reta
@@ -143,7 +149,7 @@
     line(tr, [{ x: 0, y: P.ringDensity(0, n) }, { x: 6.28, y: P.ringDensity(0, n) }], C.blue, [], 2.2);
     dot(sec.ctx, tr.X(t), tr.Y(P.ringWave(0, n) * T.re), C.green, 5); dot(sec.ctx, tr.X(t), tr.Y(P.ringDensity(0, n)), C.blue, 5);
     texts({ status: "Estacionário", detail: `n = ${n} · densidade invariante`, title: "A função de onda oscila; a densidade não", subtitle: "autoestado de energia num domínio periódico",
-      caption: "Re Ψ (verde) oscila sem parar, com um rastro dos instantes anteriores; |Ψ|² (azul) não se move. É o módulo quadrado que elimina a fase e^(−iEt/ℏ).",
+      caption: "Re Ψ (verde) oscila sem parar, com um rastro dos instantes anteriores; |Ψ|² (azul) não se move. É o módulo quadrado que elimina a fase e<sup>−iEt/ℏ</sup>. As duas curvas dividem o eixo vertical por conveniência, mas têm dimensões diferentes (Re Ψ em θ<sup>−1/2</sup>, |Ψ|² em θ<sup>−1</sup>).",
       secondaryTitle: "Densidade em t = 0 e agora · valores em θ = 0", secondarySubtitle: "as duas densidades coincidem; Re Ψ(0,t) oscila",
       secondaryCaption: "À esquerda, |Ψ|² em t = 0 (azul) e no instante atual (tracejado), sempre sobrepostos. À direita, no ponto θ = 0, Re Ψ sobe e desce enquanto |Ψ|² é uma reta.",
       prediction: "“Estado estacionário” quer dizer Ψ constante ou |Ψ|² constante? O que o rastro verde responde?",
@@ -157,8 +163,9 @@
   // ================================================================ 03 · autovalor
   function drawEigen() {
     const n = v("eigN"), L = v("eigL"), t = v("eigT"), E = (k) => P.energyLevel(k, L), top = E(6) * 1.12;
+    const xRef = P.mergeTicks(P.niceTicks(-.15, 1.95, 5).ticks, [0, L], .17);
     set("eigNOut", n); set("eigLOut", fmt(L, 2)); set("eigTOut", fmt(t, 2));
-    const main = canvas("mainCanvas", .5), chart = axes(main, { x: 0, y: 0, w: main.w, h: main.h }, -.15, 1.95, 0, top, "posição x (a_ref)", "energia (E₁ de a_ref)", { xDigits: 2, yDigits: 0 });
+    const main = canvas("mainCanvas", .5), chart = axes(main, { x: 0, y: 0, w: main.w, h: main.h }, -.15, 1.95, 0, top, "posição x (a_ref)", "energia (E₁ de a_ref)", { xTicks: xRef });
     walls(chart, 0, L);
     for (let k = 1; k <= 6; k += 1) {
       const selected = k === n, base = E(k), amp = Math.min(top * .045, (E(Math.min(k + 1, 6)) - E(k)) * .4 || top * .04);
@@ -166,7 +173,8 @@
       line(chart, samples(0, L, 200, (x) => base + amp * P.boxWave(x / L, k) * Math.cos(E(k) * t)), selected ? C.green : C.gray, [], selected ? 2.4 : 1, selected ? 1 : .45);
       label(chart.ctx, `n=${k} · ${fmt(base, 1)}`, chart.X(L) + 8, chart.Y(base) + 4, selected ? C.green : C.gray, "left", selected ? "bold 11px Ubuntu, system-ui" : "10px Ubuntu, system-ui");
     }
-    const sec = canvas("secondaryCanvas", .34), w = axes(sec, { x: 0, y: 0, w: sec.w, h: sec.h }, -.15, 1.95, -2.2, 2.2, "posição x (a_ref)", `ψ${n}(x)`, { xDigits: 2, ticks: 4 });
+    // |ψₙ|² = 2 sen²/a chega a 2/a: o eixo vertical cresce nos poços estreitos (a < 0,9).
+    const yTop = Math.max(2.2, 2.2 / L), sec = canvas("secondaryCanvas", .34), w = axes(sec, { x: 0, y: 0, w: sec.w, h: sec.h }, -.15, 1.95, -yTop, yTop, "posição x (a_ref)", `ψ${sub(n)} e |ψ${sub(n)}|²`, { ticks: 4, xTicks: xRef });
     walls(w, 0, L);
     area(w, samples(0, L, 300, (x) => P.boxWave(x / L, n) ** 2 / L), "rgba(69,123,157,.18)");
     line(w, samples(0, L, 300, (x) => P.boxWave(x / L, n) / Math.sqrt(L) * Math.cos(E(n) * t)), C.green, [], 2.6);
@@ -188,16 +196,16 @@
   function drawTwoLevel() {
     const p2 = v("twoP"), alpha = v("twoA"), t = v("twoT"), s = P.twoLevelEnergy(p2), meanX = P.twoLevelMeanX(t, p2, alpha);
     set("twoPOut", fmt(p2, 2)); set("twoAOut", `${fmt(alpha / Math.PI, 2)}π`); set("twoTOut", fmt(t, 2));
-    const main = canvas("mainCanvas", .5), chart = axes(main, { x: 0, y: 0, w: main.w, h: main.h }, -.12, 1.12, -2.2, 4.4, "posição u = x/a", "|Ψ|² e Re Ψ", { xDigits: 1 });
+    const main = canvas("mainCanvas", .5), chart = axes(main, { x: 0, y: 0, w: main.w, h: main.h }, -.12, 1.12, -2.2, 4.4, "posição u = x/a", "|Ψ|² e Re Ψ", { xTicks: [0, .25, .5, .75, 1] });
     walls(chart, 0, 1);
     const rho = samples(0, 1, 360, (u) => P.twoLevel(u, t, p2, alpha).density);
     area(chart, rho, "rgba(97,155,96,.26)"); line(chart, rho, C.green, [], 2.8);
-    line(chart, samples(0, 1, 360, (u) => P.twoLevel(u, t, p2, alpha).re), C.gold, [6, 4], 1.6);
+    line(chart, samples(0, 1, 360, (u) => P.twoLevel(u, t, p2, alpha).re), C.violet, [6, 4], 1.6);
     const c = chart.ctx; c.setLineDash([4, 4]); c.strokeStyle = C.red; c.lineWidth = 1.6; c.beginPath(); c.moveTo(chart.X(meanX), chart.top); c.lineTo(chart.X(meanX), chart.bottom); c.stroke(); c.setLineDash([]);
     dot(c, chart.X(meanX), chart.Y(4.15), C.red, 6); label(c, `⟨x⟩ = ${fmt(meanX, 3)} a`, chart.X(meanX) + 8, chart.Y(4.15) + 4, C.red, "left", "bold 11px Ubuntu, system-ui");
     // painel secundário: ⟨x⟩(t), fasores e histograma de medidas
     const sec = canvas("secondaryCanvas", .34), ctx = sec.ctx, wA = sec.w * .5, wB = sec.w * .22;
-    const tr = axes(sec, { x: 0, y: 0, w: wA, h: sec.h }, 0, 6.28, .25, .75, "t (ℏ/E₁)", "⟨x⟩/a", { ticks: 4, yDigits: 2 });
+    const tr = axes(sec, { x: 0, y: 0, w: wA, h: sec.h }, 0, 6.28, .25, .75, "t (ℏ/E₁)", "⟨x⟩/a", { ticks: 4 });
     line(tr, samples(0, 6.28, 400, (q) => P.twoLevelMeanX(q, p2, alpha)), C.red, [], 1.4, .3);
     line(tr, samples(0, Math.max(t, .001), 300, (q) => P.twoLevelMeanX(q, p2, alpha)), C.red, [], 2.6);
     dot(ctx, tr.X(t), tr.Y(meanX), C.red, 5);
@@ -208,7 +216,7 @@
     phasor(ctx, cx, cy, r, alpha - s.e2 * t, Math.sqrt(p2), C.gold, "c₂");
     label(ctx, "fasores (E₂ gira 4× mais rápido)", cx, sec.h - 8, C.gray, "center", "10px Ubuntu, system-ui");
     const total = state.counts[1] + state.counts[2];
-    const hist = axes(sec, { x: wA + wB, y: 0, w: sec.w - wA - wB, h: sec.h }, .3, 2.7, 0, 1, "resultado", "fração", { ticks: 2, xLabels: () => "", yDigits: 1 });
+    const hist = axes(sec, { x: wA + wB, y: 0, w: sec.w - wA - wB, h: sec.h }, .3, 2.7, 0, 1, "resultado", "fração", { ticks: 2, xTicks: [], yTicks: [0, .5, 1] });
     [[1, s.p1, C.blue], [2, s.p2, C.gold]].forEach(([k, prob, color]) => {
       const frac = total ? state.counts[k] / total : 0, x0 = hist.X(k - .32), x1 = hist.X(k + .32);
       ctx.fillStyle = color; ctx.globalAlpha = .75; ctx.fillRect(x0, hist.Y(frac), x1 - x0, hist.bottom - hist.Y(frac)); ctx.globalAlpha = 1;
@@ -218,7 +226,7 @@
     label(ctx, total ? `${total} medidas` : "meça a energia", hist.left + 4, hist.top + 10, C.gray, "left", "10px Ubuntu, system-ui");
     const amp = 2 * Math.sqrt((1 - p2) * p2) * Math.abs(P.x12);
     texts({ status: "Dois níveis", detail: `|c₁|² = ${fmt(s.p1, 2)} · |c₂|² = ${fmt(s.p2, 2)}`, title: "Superposição: a densidade balança no poço", subtitle: `batimento na frequência de Bohr ω₂₁ = (E₂ − E₁)/ℏ = ${fmt(s.omega, 0)} E₁/ℏ`,
-      caption: "A densidade (verde) vai de um lado ao outro do poço e volta, e ⟨x⟩ (vermelho) acompanha. Nenhum dos dois estados sozinho se move: o balanço vem do termo de interferência 2Re[c₁*c₂ψ₁ψ₂e^(−iω₂₁t)].",
+      caption: "A densidade (verde) vai de um lado ao outro do poço e volta, e ⟨x⟩ (vermelho) acompanha. Nenhum dos dois estados sozinho se move: o balanço vem do termo de interferência 2Re[c₁*c₂ψ₁ψ₂e<sup>−iω₂₁t</sup>].",
       secondaryTitle: "⟨x⟩ no tempo · fasores · medidas de energia", secondarySubtitle: `período 2πℏ/(E₂ − E₁) = ${fmt(s.period, 3)} ℏ/E₁ (linhas pontilhadas)`,
       secondaryCaption: "Os dois fasores giram com velocidades E₁/ℏ e E₂/ℏ; ⟨x⟩ depende só do ângulo entre eles. Já uma medida de energia dá E₁ ou E₂, com frequências que tendem a |c₁|² e |c₂|² (linhas tracejadas) — e isso não muda com t nem com α.",
       prediction: "Se α mudar, as probabilidades de E₁ e E₂ mudam? E o movimento de ⟨x⟩? Com |c₂|² = 0, a densidade balança?",
@@ -226,12 +234,12 @@
       metrics: [["⟨H⟩", `${fmt(s.mean, 3)} E₁`], ["ΔE", `${fmt(s.spread, 3)} E₁`], ["amplitude de ⟨x⟩", `${fmt(amp, 3)} a`], ["período de Bohr", `${fmt(s.period, 3)} ℏ/E₁`], ["medidas E₁ · E₂", total ? `${state.counts[1]} · ${state.counts[2]}` : "—"]],
       concept: "Uma superposição de energias diferentes não é estacionária: o termo cruzado oscila com ω₂₁. Mas a distribuição de energia, |c₁|² e |c₂|², é fixa. A fase α não muda essas probabilidades; só desloca no tempo a oscilação de outros observáveis, como ⟨x⟩.",
       prompts: ["Use o preset do exercício (1/3 e 2/3): confira ⟨H⟩ e ΔE com a resposta guiada da nota.", "Meça 1000 vezes: as frações se aproximam de 1/3 e 2/3? Mude α e meça de novo.", "Leve |c₂|² a 0 e a 1: o que acontece com o balanço? Em que peso a amplitude de ⟨x⟩ é máxima?"],
-      legend: [[C.green, "|Ψ|²"], [C.gold, "Re Ψ", true], [C.red, "⟨x⟩"], [C.blue, "c₁ / E₁"]] });
+      legend: [[C.green, "|Ψ|²"], [C.violet, "Re Ψ", true], [C.red, "⟨x⟩"], [C.blue, "c₁ / E₁"], [C.gold, "c₂ / E₂"]] });
   }
 
   // ================================================================ 05 · E > V_min
   function vminTrial() { return P.trialGaussian(grid, v("vminX0"), v("vminW")); }
-  function vminReset() { state.vmin = { psi: vminTrial(), history: [], relaxing: false, tau: 0 }; updateRelaxButton(); }
+  function vminReset() { state.vmin = { psi: vminTrial(), history: [], relaxing: false, tau: 0, converged: false }; updateRelaxButton(); }
   function updateRelaxButton() { $("vminRelax").textContent = state.vmin.relaxing ? "❚❚ Pausar" : "▶ Relaxar"; }
   function drawVmin() {
     const key = $("vminPotential").value, pot = P.potentials[key], V = pot.V, vmin = P.potentialMinimum(V, grid);
@@ -239,42 +247,44 @@
     set("vminX0Out", fmt(v("vminX0"), 2)); set("vminWOut", fmt(v("vminW"), 2));
     const psi = state.vmin.psi, parts = P.energyParts(psi, V, grid), trial = P.energyParts(vminTrial(), V, grid);
     if (!state.vmin.history.length) state.vmin.history.push({ tau: 0, E: parts.total });
-    const yTop = Math.max(vmin + 3, Math.min(trial.total * 1.25, vmin + 12)), main = canvas("mainCanvas", .5);
-    const chart = axes(main, { x: 0, y: 0, w: main.w, h: main.h }, -4, 4, vmin - .3, yTop, "posição x", "energia (ℏ = m = 1)", { xDigits: 1 });
+    // O quadro cresce até 1,3·E (sem teto): a linha E, |ψ|² e o rótulo ficam sempre visíveis.
+    const yTop = P.vminFrameTop(vmin, trial.total, parts.total), main = canvas("mainCanvas", .5);
+    const chart = axes(main, { x: 0, y: 0, w: main.w, h: main.h }, -4, 4, vmin - .3, yTop, "posição x", "energia (ℏ = m = 1)");
     area(chart, samples(-4, 4, 400, V), "rgba(111,113,113,.12)", yTop);
     line(chart, samples(-4, 4, 400, V), C.ink, [], 2.6);
     line(chart, [{ x: -4, y: vmin }, { x: 4, y: vmin }], C.blue, [6, 4], 1.6);
-    const peak = Math.max(...psi.map((p) => p * p)), scale = (yTop - vmin) * .32 / peak;
+    const peak = Math.max(...psi.map((p) => p * p)), scale = Math.min((yTop - vmin) * .32, (yTop - parts.total) * .9) / peak;
     const shown = grid.xs.map((x, i) => ({ x, y: parts.total + psi[i] * psi[i] * scale })).filter((p) => p.x >= -4 && p.x <= 4);
     area(chart, shown, "rgba(97,155,96,.3)", parts.total); line(chart, shown, C.green, [], 2.4);
     line(chart, [{ x: -4, y: parts.total }, { x: 4, y: parts.total }], C.red, [], 2);
-    if (pot.ground !== null) line(chart, [{ x: -4, y: pot.ground }, { x: 4, y: pot.ground }], C.gold, [3, 4], 1.4);
+    const relaxed = state.vmin.converged, groundLine = pot.ground !== null ? pot.ground : relaxed ? parts.total : null;
+    if (groundLine !== null) line(chart, [{ x: -4, y: groundLine }, { x: 4, y: groundLine }], C.gold, [3, 4], 1.4);
     label(chart.ctx, `E = ${fmt(parts.total, 3)}`, chart.right - 6, chart.Y(parts.total) - 6, C.red, "right", "bold 11px Ubuntu, system-ui");
     label(chart.ctx, `V_mín = ${fmt(vmin, 2)}`, chart.left + 6, chart.Y(vmin) - 6, C.blue, "left", "bold 11px Ubuntu, system-ui");
     // secundário: barras T + ⟨V⟩ = E e E(τ) na relaxação
     const sec = canvas("secondaryCanvas", .34), ctx = sec.ctx, wBar = sec.w * .34, eMax = Math.max(trial.total, parts.total, vmin + 1) * 1.15;
-    const bars = axes(sec, { x: 0, y: 0, w: wBar, h: sec.h }, 0, 3, Math.min(0, vmin), eMax, "", "energia", { ticks: 3, xLabels: () => "", yDigits: 1 });
+    const bars = axes(sec, { x: 0, y: 0, w: wBar, h: sec.h }, 0, 3, Math.min(0, vmin), eMax, "", "energia", { ticks: 3, xTicks: [] });
     const bar = (x, from, to, color, text) => { const x0 = bars.X(x - .32), x1 = bars.X(x + .32); ctx.fillStyle = color; ctx.fillRect(x0, bars.Y(to), x1 - x0, bars.Y(from) - bars.Y(to)); label(ctx, text, (x0 + x1) / 2, bars.bottom + 14, C.gray, "center", "10px Ubuntu, system-ui"); };
     bar(.7, 0, parts.kinetic, C.gold, "cinética T"); bar(1.5, 0, parts.potential, C.blue, "⟨V⟩"); bar(2.3, 0, parts.potential, C.blue, "E"); bar(2.3, parts.potential, parts.total, C.gold, "");
     ctx.strokeStyle = C.blue; ctx.setLineDash([5, 4]); ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(bars.left, bars.Y(vmin)); ctx.lineTo(bars.right, bars.Y(vmin)); ctx.stroke(); ctx.setLineDash([]);
     const hist = state.vmin.history, tauMax = Math.max(4, hist[hist.length - 1].tau * 1.1);
-    const curve = axes(sec, { x: wBar, y: 0, w: sec.w - wBar, h: sec.h }, 0, tauMax, Math.min(vmin, pot.ground ?? vmin) - .1, Math.max(hist[0].E, parts.total) * 1.08 + .1, "tempo imaginário τ", "E(τ)", { ticks: 4, yDigits: 2 });
+    const curve = axes(sec, { x: wBar, y: 0, w: sec.w - wBar, h: sec.h }, 0, tauMax, Math.min(vmin, pot.ground ?? vmin) - .1, Math.max(hist[0].E, parts.total) * 1.08 + .1, "tempo imaginário τ", "E(τ)", { ticks: 4 });
     line(curve, [{ x: 0, y: vmin }, { x: tauMax, y: vmin }], C.blue, [6, 4], 1.4);
     if (pot.ground !== null) line(curve, [{ x: 0, y: pot.ground }, { x: tauMax, y: pot.ground }], C.gold, [3, 4], 1.4);
     line(curve, hist.map((h) => ({ x: h.tau, y: h.E })), C.red, [], 2.4);
     dot(ctx, curve.X(hist[hist.length - 1].tau), curve.Y(parts.total), C.red, 5);
     const gap = parts.total - vmin;
     texts({ status: "E > V_mín", detail: `${pot.name} · E − V_mín = ${fmt(gap, 3)}`, title: `Por que E > V_mín? · ${pot.name}`, subtitle: `${pot.formula}: a energia de qualquer estado fica acima do fundo do poço`,
-      caption: `Preto: V(x); azul tracejado: V_mín; vermelho: E da função atual, com |ψ|² (verde) desenhada sobre a linha de E.${pot.ground !== null ? " Dourado pontilhado: energia do estado fundamental exato." : ""} Para pôr E em V_mín, ψ teria de ficar toda no ponto mais baixo — e isso exige ψ′ enorme.`,
+      caption: `Preto: V(x); azul tracejado: V_mín; vermelho: E da função atual, com |ψ|² (verde) desenhada sobre a linha de E.${pot.ground !== null ? " Dourado pontilhado: energia do estado fundamental exato." : " Dourado pontilhado (depois de relaxar): energia do estado fundamental, obtida numericamente."} Para pôr E em V_mín, ψ teria de ficar toda no ponto mais baixo — e isso exige ψ′ enorme.`,
       secondaryTitle: "E = T + ⟨V⟩ · relaxação", secondarySubtitle: "T ≥ 0 e ⟨V⟩ ≥ V_mín, logo E > V_mín",
       secondaryCaption: "Barras: a energia é a soma da cinética T = (ℏ²/2m)∫|ψ′|²dx (dourado, nunca negativa) com ⟨V⟩ (azul, nunca abaixo de V_mín). Curva: ao relaxar, E desce e se estabiliza no estado fundamental, sempre acima da linha de V_mín.",
       prediction: "Estreitando ψ no fundo do poço, E cai até V_mín? O que acontece com a parte cinética quando w diminui?",
       calculation: `E = (ℏ²/2m)∫|ψ′|²dx + ∫V|ψ|²dx<br>= ${fmt(parts.kinetic, 3)} + ${fmt(parts.potential, 3)}<br><b>= ${fmt(parts.total, 3)} > V_mín = ${fmt(vmin, 2)}</b><small>a integração por partes da nota transforma −∫ψ*ψ″ em ∫|ψ′|² ≥ 0</small>`,
-      metrics: [["cinética T", fmt(parts.kinetic, 3)], ["⟨V⟩", fmt(parts.potential, 3)], ["E", fmt(parts.total, 3)], ["E − V_mín", fmt(gap, 3)], ["fundamental exato", pot.ground !== null ? fmt(pot.ground, 4) : "—"], ["τ relaxado", fmt(state.vmin.tau, 2)]],
+      metrics: [["cinética T", fmt(parts.kinetic, 3)], ["⟨V⟩", fmt(parts.potential, 3)], ["E", fmt(parts.total, 3)], ["E − V_mín", fmt(gap, 3)], [pot.ground !== null ? "fundamental exato" : "fundamental (relaxado)", pot.ground !== null ? fmt(pot.ground, 4) : relaxed ? fmt(parts.total, 4) : "— (relaxe)"], ["τ relaxado", fmt(state.vmin.tau, 2)]],
       conceptTitle: "Griffiths 2.2",
       concept: "Integrando o termo cinético por partes, E = (ℏ²/2m)∫|ψ′|²dx + ∫V|ψ|²dx. O primeiro termo é ≥ 0 e o segundo ≥ V_mín. A igualdade exigiria ψ′ = 0 e ψ só onde V = V_mín, o que nenhum estado normalizável consegue: E > V_mín.",
       prompts: ["Com o oscilador e x₀ = 0, procure o w que minimiza E. Compare com o fundamental exato 0,5.", "Diminua w até 0,1: qual barra explode? Aumente w até 2: qual cresce?", "Relaxe nos três potenciais: o estado fundamental fica onde, em relação a V_mín? No poço duplo, onde ψ se concentra?"],
-      legend: [[C.ink, "V(x)"], [C.blue, "V_mín", true], [C.red, "E"], [C.green, "|ψ|²"], [C.gold, "fundamental", true]] });
+      legend: [[C.ink, "V(x)"], [C.blue, "V_mín", true], [C.red, "E"], [C.green, "|ψ|²"], ...(groundLine !== null ? [[C.gold, pot.ground !== null ? "fundamental exato" : "fundamental (relaxado)", true]] : [])] });
   }
 
   // ================================================================ 06 · hermitiano (parêntese da nota)
@@ -290,87 +300,109 @@
     const key = $("hermOp").value, op = OPS[key], m = v("hermM"), n = v("hermN"), t = v("hermT"), gamma = key === "Hc" ? v("hermGamma") : 0;
     $("hermGammaWrap").hidden = key !== "Hc";
     set("hermMOut", m); set("hermNOut", n); set("hermGammaOut", fmt(gamma, 2)); set("hermTOut", fmt(t, 2));
+    const canvasWidth = (id) => $(id).clientWidth || 900;
     const size = 5, mat = P.matrix(key === "Hc" ? "H" : key, size, gamma), q = mat[m - 1][n - 1], qT = mat[n - 1][m - 1];
     const defect = P.hermitianDefect(mat), anti = P.hermitianDefect(mat, -1);
     const verdict = defect < 1e-9 ? "hermitiano: Q† = Q" : anti < 1e-9 ? "anti-hermitiano: Q† = −Q" : "não hermitiano";
     const scale = Math.max(1e-9, ...mat.flat().map((c) => Math.hypot(c.re, c.im)));
-    const main = canvas("mainCanvas", .5), ctx = main.ctx, cell = Math.min(main.h * .78 / size, main.w * .5 / size), ox = 80, oy = 46;
-    label(ctx, "|n⟩ →", ox + cell * size / 2, 16, C.gray, "center"); ctx.save(); ctx.translate(26, oy + cell * size / 2); ctx.rotate(-Math.PI / 2); label(ctx, "⟨m| →", 0, 0, C.gray, "center"); ctx.restore();
+    const wide = canvasWidth("mainCanvas") >= 600, ox = wide ? 80 : 38, oy = 46;
+    const cell = wide ? canvasWidth("mainCanvas") * .39 / size : Math.min(60, (canvasWidth("mainCanvas") - ox - 10) / size);
+    // celular: a matriz fica no alto e o painel de verificação desce para baixo dela
+    const main = canvas("mainCanvas", .5, oy + cell * size + 150), ctx = main.ctx;
+    const cs = cell;
+    label(ctx, "|n⟩ →", ox + cs * size / 2, 16, C.gray, "center"); ctx.save(); ctx.translate(wide ? 26 : 12, oy + cs * size / 2); ctx.rotate(Math.PI / 2); label(ctx, "⟨m| →", 0, 0, C.gray, "center"); ctx.restore();
+    const cellFont = cs < 50 ? 10 : 11;
     for (let i = 0; i < size; i += 1) {
-      label(ctx, `${i + 1}`, ox + cell * (i + .5), oy - 8, C.ink, "center", "bold 11px Ubuntu, system-ui"); label(ctx, `${i + 1}`, ox - 10, oy + cell * (i + .5) + 4, C.ink, "right", "bold 11px Ubuntu, system-ui");
+      label(ctx, `${i + 1}`, ox + cs * (i + .5), oy - 8, C.ink, "center", "bold 11px Ubuntu, system-ui"); label(ctx, `${i + 1}`, ox - 10, oy + cs * (i + .5) + 4, C.ink, "right", "bold 11px Ubuntu, system-ui");
       for (let j = 0; j < size; j += 1) {
-        const c = mat[i][j], x = ox + cell * j, y = oy + cell * i, mag = Math.hypot(c.re, c.im) / scale;
-        ctx.fillStyle = "#fff"; ctx.fillRect(x, y, cell, cell);
-        if (Math.abs(c.re) > 1e-9) { ctx.fillStyle = c.re > 0 ? `rgba(69,123,157,${.15 + .65 * mag})` : `rgba(198,92,75,${.15 + .65 * mag})`; ctx.fillRect(x, y, cell, cell); }
-        if (Math.abs(c.im) > 1e-9) { ctx.fillStyle = c.im > 0 ? `rgba(123,94,167,${.15 + .65 * mag})` : `rgba(233,162,59,${.2 + .6 * mag})`; ctx.fillRect(x, y, cell, cell); }
-        ctx.strokeStyle = C.grid; ctx.lineWidth = 1; ctx.strokeRect(x, y, cell, cell);
-        label(ctx, fmtC(c, 2), x + cell / 2, y + cell / 2 + 4, mag > .45 ? "#fff" : C.ink, "center", `${mag > .45 ? "bold " : ""}11px Ubuntu, system-ui`);
+        const c = mat[i][j], x = ox + cs * j, y = oy + cs * i, mRe = Math.abs(c.re) / scale, mIm = Math.abs(c.im) / scale, hasRe = Math.abs(c.re) > 1e-9, hasIm = Math.abs(c.im) > 1e-9;
+        const fillRe = `${c.re > 0 ? "rgba(69,123,157," : "rgba(198,92,75,"}${.15 + .65 * mRe})`, fillIm = `${c.im > 0 ? "rgba(123,94,167," : "rgba(233,162,59,"}${.2 + .6 * mIm})`;
+        const font = (m) => `${m > .45 ? "bold " : ""}${cellFont}px Ubuntu, system-ui`, ink = (m) => (m > .45 ? "#fff" : C.ink);
+        ctx.fillStyle = "#fff"; ctx.fillRect(x, y, cs, cs);
+        if (hasRe && hasIm) { // célula dividida: metade de cima = Re, de baixo = Im, cada uma na cor da legenda
+          ctx.fillStyle = fillRe; ctx.fillRect(x, y, cs, cs / 2); ctx.fillStyle = fillIm; ctx.fillRect(x, y + cs / 2, cs, cs / 2);
+          label(ctx, fmt(c.re, 2), x + cs / 2, y + cs / 4 + 4, ink(mRe), "center", font(mRe));
+          label(ctx, `${fmt(c.im, 2)}i`, x + cs / 2, y + cs * .75 + 4, ink(mIm), "center", font(mIm));
+        } else {
+          if (hasRe) { ctx.fillStyle = fillRe; ctx.fillRect(x, y, cs, cs); } else if (hasIm) { ctx.fillStyle = fillIm; ctx.fillRect(x, y, cs, cs); }
+          const m1 = Math.max(mRe, mIm); label(ctx, fmtC(c, 2), x + cs / 2, y + cs / 2 + 4, ink(m1), "center", font(m1));
+        }
+        ctx.strokeStyle = C.grid; ctx.lineWidth = 1; ctx.strokeRect(x, y, cs, cs);
       }
     }
-    ctx.lineWidth = 3; ctx.strokeStyle = C.ink; ctx.setLineDash([]); ctx.strokeRect(ox + cell * (n - 1), oy + cell * (m - 1), cell, cell);
-    ctx.setLineDash([5, 4]); ctx.strokeRect(ox + cell * (m - 1), oy + cell * (n - 1), cell, cell); ctx.setLineDash([]);
-    if (m !== n) { ctx.strokeStyle = C.gray; ctx.lineWidth = 1.2; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + cell * size, oy + cell * size); ctx.stroke(); ctx.setLineDash([]); }
-    // painel de verificação à direita
-    const px = ox + cell * size + 40, conj = { re: qT.re, im: -qT.im };
-    label(ctx, `⟨${m}|Q̂|${n}⟩ = ${fmtC(q)} ${op.unit}`, px, oy + 14, C.ink, "left", "bold 13px Ubuntu, system-ui");
-    label(ctx, `⟨${n}|Q̂|${m}⟩* = ${fmtC(conj)} ${op.unit}`, px, oy + 40, C.ink, "left", "13px Ubuntu, system-ui");
+    ctx.lineWidth = 3; ctx.strokeStyle = C.ink; ctx.setLineDash([]); ctx.strokeRect(ox + cs * (n - 1), oy + cs * (m - 1), cs, cs);
+    ctx.setLineDash([5, 4]); ctx.strokeRect(ox + cs * (m - 1), oy + cs * (n - 1), cs, cs); ctx.setLineDash([]);
+    if (m !== n) { ctx.strokeStyle = C.gray; ctx.lineWidth = 1.2; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(ox + cs * size, oy + cs * size); ctx.stroke(); ctx.setLineDash([]); }
+    // painel de verificação: à direita da matriz (largo) ou abaixo dela (celular)
+    const px = wide ? ox + cs * size + 40 : ox, py = wide ? oy : oy + cs * size + 24, conj = { re: qT.re, im: -qT.im }, fs = wide ? 13 : 12, ln = wide ? 26 : 20;
+    label(ctx, `⟨${m}|Q̂|${n}⟩ = ${fmtC(q)} ${op.unit}`, px, py + 14, C.ink, "left", `bold ${fs}px Ubuntu, system-ui`);
+    label(ctx, `⟨${n}|Q̂|${m}⟩* = ${fmtC(conj)} ${op.unit}`, px, py + 14 + ln, C.ink, "left", `${fs}px Ubuntu, system-ui`);
     const same = Math.hypot(q.re - conj.re, q.im - conj.im) < 1e-9, opp = Math.hypot(q.re + conj.re, q.im + conj.im) < 1e-9;
-    label(ctx, same && opp ? "ambos nulos" : same ? "iguais ✓ (Q_mn = Q_nm*)" : opp ? "opostos: Q_mn = −Q_nm*" : "diferentes", px, oy + 66, same ? C.green : opp ? C.gold : C.red, "left", "bold 12px Ubuntu, system-ui");
-    label(ctx, `matriz 5×5: ${verdict}`, px, oy + 100, defect < 1e-9 ? C.green : C.red, "left", "bold 12px Ubuntu, system-ui");
-    label(ctx, `máx |Q_mn − Q_nm*| = ${fmt(defect, 3)}`, px, oy + 120, C.gray, "left", "11px Ubuntu, system-ui");
-    label(ctx, `diagonal ${mat.every((r, i) => Math.abs(r[i].im) < 1e-9) ? "real ✓" : "complexa ✗"}`, px, oy + 140, C.gray, "left", "11px Ubuntu, system-ui");
-    label(ctx, "cheio: (m,n) · tracejado: (n,m)", px, oy + cell * size - 4, C.gray, "left", "10px Ubuntu, system-ui");
+    label(ctx, same && opp ? "ambos nulos" : same ? "iguais ✓ (Q_mn = Q_nm*)" : opp ? "opostos: Q_mn = −Q_nm*" : "diferentes", px, py + 14 + 2 * ln, same ? C.green : opp ? C.gold : C.red, "left", "bold 12px Ubuntu, system-ui");
+    const g0 = py + 14 + 2 * ln + (wide ? 34 : 26);
+    label(ctx, `matriz 5×5: ${verdict}`, px, g0, defect < 1e-9 ? C.green : C.red, "left", "bold 12px Ubuntu, system-ui");
+    label(ctx, `máx |Q_mn − Q_nm*| = ${fmt(defect, 3)}`, px, g0 + 20, C.gray, "left", "11px Ubuntu, system-ui");
+    label(ctx, `diagonal ${mat.every((r, i) => Math.abs(r[i].im) < 1e-9) ? "real ✓" : "complexa ✗"}`, px, g0 + 40, C.gray, "left", "11px Ubuntu, system-ui");
+    label(ctx, "cheio: (m,n) · tracejado: (n,m)", px, wide ? oy + cs * size - 4 : g0 + 60, C.gray, "left", "10px Ubuntu, system-ui");
     // secundário: |Ψ|² de ψ₁ com V = −iΓ e a norma no tempo
     const norm = P.normDecay(gamma, t), sec = canvas("secondaryCanvas", .34), sctx = sec.ctx, wA = sec.w * .52;
-    const dch = axes(sec, { x: 0, y: 0, w: wA, h: sec.h }, -.08, 1.08, 0, 2.3, "posição x/a", "|Ψ₁(x,t)|²", { ticks: 4, xDigits: 1 });
+    const dch = axes(sec, { x: 0, y: 0, w: wA, h: sec.h }, -.08, 1.08, 0, 2.3, "posição x/a", "|Ψ₁(x,t)|²", { ticks: 4, xTicks: [0, .5, 1] });
     walls(dch, 0, 1);
     line(dch, samples(0, 1, 200, (u) => P.densityStationary(u, 1)), C.gray, [4, 4], 1.4);
     area(dch, samples(0, 1, 200, (u) => P.densityStationary(u, 1) * norm), "rgba(97,155,96,.3)"); line(dch, samples(0, 1, 200, (u) => P.densityStationary(u, 1) * norm), C.green, [], 2.4);
-    const nch = axes(sec, { x: wA, y: 0, w: sec.w - wA, h: sec.h }, 0, 6.28, 0, 1.1, "t (ℏ/E₁)", "⟨Ψ|Ψ⟩", { ticks: 4, yDigits: 1 });
+    const nch = axes(sec, { x: wA, y: 0, w: sec.w - wA, h: sec.h }, 0, 6.28, 0, 1.1, "t (ℏ/E₁)", "⟨Ψ|Ψ⟩", { ticks: 4 });
     line(nch, [{ x: 0, y: 1 }, { x: 6.28, y: 1 }], C.gray, [4, 4], 1.2);
     line(nch, samples(0, 6.28, 200, (s) => P.normDecay(gamma, s)), C.red, [], 2.4);
     dot(sctx, nch.X(t), nch.Y(norm), C.red, 5);
-    label(sctx, gamma ? `e^(−2Γt/ℏ): τ = ℏ/2Γ = ${fmt(P.lifetime(gamma), 2)} ℏ/E₁` : "V real: norma constante", nch.right - 4, nch.top + 14, C.red, "right", "bold 11px Ubuntu, system-ui");
+    label(sctx, gamma ? `τ = ℏ/2Γ = ${fmt(P.lifetime(gamma), 2)} ℏ/E₁` : "V real: norma constante", nch.right, nch.top - 5, C.red, "right", "bold 11px Ubuntu, system-ui");
     texts({ status: "Hermitiano", detail: `${op.name} · ${verdict}`, title: `${op.name} na base {|n⟩} do poço: é hermitiano?`, subtitle: op.formula,
       caption: "Cada célula é Qₘₙ = ⟨m|Q̂|n⟩ para os cinco primeiros autoestados do poço. Azul/vermelho: parte real positiva/negativa; violeta/laranja: parte imaginária positiva/negativa. Um operador hermitiano tem matriz igual à transposta conjugada: elementos simétricos em relação à diagonal são conjugados e a diagonal é real.",
-      secondaryTitle: "Hermiticidade e conservação da probabilidade", secondarySubtitle: gamma ? `V = V_R − iΓ, Γ = ${fmt(gamma, 2)} E₁: ⟨Ψ|Ψ⟩ = e^(−2Γt/ℏ), τ = ℏ/2Γ, largura da linha ℏ/τ = 2Γ` : "Ĥ hermitiano: ⟨Ψ|Ψ⟩ não muda no tempo",
-      secondaryCaption: "Com V real, Ĥ é hermitiano e a norma é conservada (aula 3). Com V = V_R − iΓ, Ĥ ≠ Ĥ† e a norma cai como e^(−2Γt/ℏ), com vida média τ = ℏ/2Γ: a partícula some do canal descrito — é como se modela absorção ou decaimento. A linha espectral desse nível tem largura a meia altura ℏ/τ = 2Γ: Γ é a meia largura (Tc-99m, nota da Aula 4).",
+      secondaryTitle: "Hermiticidade e conservação da probabilidade", secondarySubtitle: gamma ? `V = V_R − iΓ, Γ = ${fmt(gamma, 2)} E₁: ⟨Ψ|Ψ⟩ = e<sup>−2Γt/ℏ</sup>, τ = ℏ/2Γ, largura da linha ℏ/τ = 2Γ` : "Ĥ hermitiano: ⟨Ψ|Ψ⟩ não muda no tempo",
+      secondaryCaption: "Com V real, Ĥ é hermitiano e a norma é conservada (aula 3). Com V = V_R − iΓ, Ĥ ≠ Ĥ† e a norma cai como e<sup>−2Γt/ℏ</sup>, com vida média τ = ℏ/2Γ: a partícula some do canal descrito — é como se modela absorção ou decaimento. A linha espectral desse nível tem largura a meia altura ℏ/τ = 2Γ: Γ é a meia largura (Tc-99m, nota da Aula 4).",
       prediction: "A matriz de d/dx será simétrica? E a de p̂ = −iℏ d/dx: o que o fator −i muda? Em x̂, o que você espera para ⟨1|x̂|3⟩?",
-      calculation: `${op.formula}<br><b>⟨${m}|Q̂|${n}⟩ = ${fmtC(q)} ${op.unit} · ⟨${n}|Q̂|${m}⟩* = ${fmtC(conj)} ${op.unit}</b><small>exemplo da nota: ⟨1|p̂|2⟩ = −iℏ(4π/a²)∫sen(πx/a)cos(2πx/a)dx = 8iℏ/(3a) = ${fmt(8 / 3, 3)}i ℏ/a</small><small>(d/dx)† = −d/dx pela integração por partes; p̂† = (−iℏ)*(−d/dx) = p̂</small>${gamma ? `<small>V = V_R − iΓ: ⟨Ψ|Ψ⟩ = e^(−2Γt/ℏ) = e^(−2·${fmt(gamma, 2)}·${fmt(t, 2)}) = ${fmt(norm, 3)}; τ = ℏ/2Γ = ${fmt(P.lifetime(gamma), 2)} ℏ/E₁; largura a meia altura ℏ/τ = 2Γ = ${fmt(P.linewidthFWHM(gamma), 2)} E₁</small>` : ""}`,
+      calculation: `${op.formula}<br><b>⟨${m}|Q̂|${n}⟩ = ${fmtC(q)} ${op.unit} · ⟨${n}|Q̂|${m}⟩* = ${fmtC(conj)} ${op.unit}</b><small>exemplo da nota: ⟨1|p̂|2⟩ = −iℏ(4π/a²)∫sen(πx/a)cos(2πx/a)dx = 8iℏ/(3a) = ${fmt(8 / 3, 3)}i ℏ/a</small><small>(d/dx)† = −d/dx pela integração por partes; p̂† = (−iℏ)*(−d/dx) = p̂</small>${gamma ? `<small>V = V_R − iΓ: ⟨Ψ|Ψ⟩ = e<sup>−2Γt/ℏ</sup> = e<sup>−2·${fmt(gamma, 2)}·${fmt(t, 2)}</sup> = ${fmt(norm, 3)}; τ = ℏ/2Γ = ${fmt(P.lifetime(gamma), 2)} ℏ/E₁; largura a meia altura ℏ/τ = 2Γ = ${fmt(P.linewidthFWHM(gamma), 2)} E₁</small>` : ""}`,
       metrics: [["operador", op.name], [`⟨${m}|Q̂|${n}⟩`, `${fmtC(q)} ${op.unit}`], [`⟨${n}|Q̂|${m}⟩*`, `${fmtC(conj)} ${op.unit}`], ["máx |Qₘₙ − Qₙₘ*|", fmt(defect, 4)], ["classificação", verdict], gamma ? ["⟨Ψ|Ψ⟩ em t · τ · ℏ/τ = 2Γ", `${fmt(norm, 3)} · ${fmt(P.lifetime(gamma), 2)} ℏ/E₁ · ${fmt(P.linewidthFWHM(gamma), 2)} E₁`] : ["⟨Ψ|Ψ⟩ em t", fmt(norm, 3)]],
       conceptTitle: "Parêntese da nota",
       concept: "O adjunto é definido por ⟨φ|Q̂ψ⟩ = ⟨Q̂†φ|ψ⟩, e hermitiano é Q̂† = Q̂. Numa base ortonormal isso vira Qₘₙ = Qₙₘ*. A derivada troca de sinal na integração por partes (anti-hermitiana); o −i de p̂ corrige o sinal. Operadores hermitianos têm valores esperados e autovalores reais, autofunções ortogonais e, no caso de Ĥ, conservam a probabilidade — por isso representam as grandezas observáveis.",
       prompts: ["Escolha d/dx e compare ⟨1|d/dx|2⟩ com ⟨2|d/dx|1⟩. Agora p̂: o que mudou e por quê?", "Em x̂, confira ⟨1|x̂|1⟩ = a/2, ⟨1|x̂|2⟩ = −0,180 a (a amplitude da estação 4) e ⟨1|x̂|3⟩ = 0: explique pela paridade.", "Em Ĥ, por que a matriz é diagonal? O que isso diz sobre a base?", "Ligue V = V_R − iΓ: o que aparece na diagonal? Em que instante ⟨Ψ|Ψ⟩ cai a 1/e (τ = ℏ/2Γ) e à metade (ln 2 · τ)? Por que a largura da linha é 2Γ e não Γ?"],
-      legend: [[C.blue, "Re > 0"], [C.red, "Re < 0"], [C.violet, "Im > 0"], [C.gold, "Im < 0"], [C.green, "|Ψ₁|² · ⟨Ψ|Ψ⟩"]] });
+      legend: [[C.blue, "Re > 0"], [C.red, "Re < 0"], [C.violet, "Im > 0"], [C.gold, "Im < 0"], [C.green, "|Ψ₁|²"], [C.red, "⟨Ψ|Ψ⟩"]] });
   }
 
   // ---------------------------------------------------------------- animação e eventos
   const draws = { separation: drawSeparation, stationary: drawStationary, eigen: drawEigen, twolevel: drawTwoLevel, vmin: drawVmin, hermitian: drawHermitian };
   const render = () => draws[view]();
   const playIds = { separation: "sepT", stationary: "statT", eigen: "eigT", twolevel: "twoT", hermitian: "hermT" };
+  // Um único laço de animação: `raf` guarda o id pendente e é cancelado ao pausar ou trocar de aba.
+  let raf = 0;
+  const busy = () => Boolean(state.playing) || (view === "vmin" && state.vmin.relaxing);
+  function kick() { if (!raf) { state.last = performance.now(); raf = requestAnimationFrame(frame); } }
+  function stop() { if (raf) cancelAnimationFrame(raf); raf = 0; }
   function setPlaying(id) {
-    state.playing = id; state.last = performance.now();
+    state.playing = id; state.anim = id ? Number($(id).value) : 0;
     document.querySelectorAll("[data-play]").forEach((b) => { b.textContent = b.dataset.play === id ? "❚❚ Pausar" : "▶ Animar"; });
-    if (id || state.vmin.relaxing) requestAnimationFrame(frame);
+    if (busy()) kick(); else stop();
   }
   function frame(now) {
+    raf = 0;
     const dt = Math.max(0, Math.min(.05, (now - state.last) / 1000)); state.last = now;
-    if (state.playing) { const s = $(state.playing), speed = state.playing === "twoT" ? .35 : .25; let next = Number(s.value) + dt * speed; if (next > Number(s.max)) next = 0; s.value = next.toFixed(4); }
+    if (state.playing) { // o tempo avança em ponto flutuante; o controle só mostra (arredondado ao passo)
+      const s = $(state.playing), speed = state.playing === "twoT" ? .35 : .25; state.anim += dt * speed; if (state.anim > Number(s.max)) state.anim = 0; s.value = state.anim.toFixed(4);
+    }
     if (view === "vmin" && state.vmin.relaxing) {
       const V = P.potentials[$("vminPotential").value].V, before = P.energyParts(state.vmin.psi, V, grid).total, steps = 80, dtau = .4 * grid.dx * grid.dx;
       state.vmin.psi = P.relax(state.vmin.psi, V, grid, steps, dtau); state.vmin.tau += steps * dtau;
       const after = P.energyParts(state.vmin.psi, V, grid).total; state.vmin.history.push({ tau: state.vmin.tau, E: after });
-      if (Math.abs(before - after) < 1e-7 || state.vmin.tau > 40) { state.vmin.relaxing = false; updateRelaxButton(); }
+      if (Math.abs(before - after) < 1e-7 || state.vmin.tau > 40) { state.vmin.relaxing = false; state.vmin.converged = true; updateRelaxButton(); }
     }
     render();
-    if (state.playing || (view === "vmin" && state.vmin.relaxing)) requestAnimationFrame(frame);
+    if (busy()) raf = requestAnimationFrame(frame);
   }
   function switchView(next) {
     view = VIEWS.includes(next) ? next : "separation";
     document.querySelectorAll("[data-view]").forEach((b) => { const a = b.dataset.view === view; b.classList.toggle("active", a); b.setAttribute("aria-selected", String(a)); });
     document.querySelectorAll("[data-controls]").forEach((s) => s.classList.toggle("active", s.dataset.controls === view));
     try { const u = new URL(location.href); u.searchParams.set("view", view); history.replaceState(null, "", u); } catch (_) {}
-    state.vmin.relaxing = false; updateRelaxButton();
+    state.vmin.relaxing = false; updateRelaxButton(); stop();
     setPlaying(!reducedMotion && playIds[view] ? playIds[view] : null);
     render();
   }
@@ -385,19 +417,21 @@
   document.querySelectorAll("input, select").forEach((el) => el.addEventListener("input", () => {
     if (el.id.startsWith("vmin")) vminReset();
     if (el.id === "twoP") state.counts = { 1: 0, 2: 0 };
+    if (el.id === state.playing) state.anim = Number(el.value);
     render();
   }));
   document.querySelectorAll("[data-play]").forEach((b) => b.addEventListener("click", () => setPlaying(state.playing === b.dataset.play ? null : b.dataset.play)));
-  document.querySelectorAll("[data-zero]").forEach((b) => b.addEventListener("click", () => { $(b.dataset.zero).value = 0; render(); }));
+  document.querySelectorAll("[data-zero]").forEach((b) => b.addEventListener("click", () => { $(b.dataset.zero).value = 0; if (b.dataset.zero === state.playing) state.anim = 0; render(); }));
   document.querySelectorAll("[data-shots]").forEach((b) => b.addEventListener("click", () => { const p2 = v("twoP"); for (let i = 0; i < Number(b.dataset.shots); i += 1) state.counts[P.measureEnergy(p2)] += 1; render(); }));
   $("twoClear").addEventListener("click", () => { state.counts = { 1: 0, 2: 0 }; render(); });
   $("twoPreset").addEventListener("click", () => { $("twoP").value = 2 / 3; $("twoA").value = 0; state.counts = { 1: 0, 2: 0 }; render(); });
-  $("vminRelax").addEventListener("click", () => { state.vmin.relaxing = !state.vmin.relaxing; updateRelaxButton(); if (state.vmin.relaxing) { state.last = performance.now(); requestAnimationFrame(frame); } });
+  $("vminRelax").addEventListener("click", () => { state.vmin.relaxing = !state.vmin.relaxing; updateRelaxButton(); if (state.vmin.relaxing) kick(); else if (!busy()) stop(); });
   $("vminBack").addEventListener("click", () => { vminReset(); render(); });
   $("resetBtn").addEventListener("click", () => {
     Object.entries(defaults[view]).forEach(([id, value]) => { $(id).value = value; });
     if (view === "twolevel") state.counts = { 1: 0, 2: 0 };
     if (view === "vmin") vminReset();
+    if (state.playing) state.anim = Number($(state.playing).value);
     render();
   });
   // Estado inicial por URL: ?view=twolevel&twoT=1.2 (útil para links nas notas).

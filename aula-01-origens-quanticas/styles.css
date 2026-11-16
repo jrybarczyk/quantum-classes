@@ -43,7 +43,7 @@ h2 { margin: 0; color: var(--slide-blue); font-size: .74rem; letter-spacing: .12
 .presets { display: flex; gap: 5px; flex-wrap: wrap; }.presets button { flex: 1; padding: 6px; border: 1px solid var(--line); border-radius: 5px; background: white; color: var(--green-dark); font-size: .68rem; }
 .hint { color: var(--muted); font-size: .69rem; line-height: 1.45; }
 .canvas-panel { padding: 15px; }.chart-heading { min-height: 48px; padding: 3px 4px 8px; border-bottom: 2px solid var(--slide-blue-pale); }.chart-heading h2 { color: var(--ink); font-size: .8rem; }.chart-heading p { margin: 4px 0 0; color: var(--muted); font-size: .69rem; }
-canvas { display: block; width: 100%; height: auto; aspect-ratio: 1100/590; border-radius: 7px; background: radial-gradient(circle at 12% 0, #f9fbff 0, #fbfcfa 48%); }.caption { min-height: 34px; margin: 9px 3px 0; color: var(--muted); font-size: .7rem; line-height: 1.45; }
+canvas { display: block; width: 100%; height: auto; border-radius: 7px; background: radial-gradient(circle at 12% 0, #f9fbff 0, #fbfcfa 48%); }.caption { min-height: 34px; margin: 9px 3px 0; color: var(--muted); font-size: .7rem; line-height: 1.45; }
 .legend { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; font-size: .67rem; }.legend i { display: inline-block; width: 17px; margin-right: 4px; border-top: 3px solid; vertical-align: 3px; }
 .analysis { display: flex; flex-direction: column; gap: 14px; }.analysis section { padding-bottom: 13px; border-bottom: 1px solid var(--line); }.analysis section:last-child { border: 0; }
 .predict { padding: 12px !important; border: 1px solid #c9d7eb !important; border-left: 4px solid var(--slide-blue) !important; border-radius: 7px; background: var(--slide-blue-pale); }.predict span { color: var(--slide-blue); font-size: .64rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }.predict p,.concept p { margin: 6px 0 0; font-size: .72rem; line-height: 1.45; }
@@ -54,3 +54,8 @@ footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8p
 @media (max-width: 1180px) { .topbar { grid-template-columns: 200px 1fr; }.status { grid-column: 1/-1; }.workspace { grid-template-columns: 270px 1fr; }.analysis { grid-column: 1/-1; display: grid; grid-template-columns: repeat(3,1fr); }.analysis section { border: 0; } }
 @media (max-width: 760px) { .app-shell { padding: 10px; }.topbar { grid-template-columns: 1fr; }.status { grid-column: auto; }.tabs { grid-template-columns: repeat(2,1fr); }.workspace { grid-template-columns: 1fr; }.analysis { grid-column: auto; grid-template-columns: 1fr; }.brand { order: -1; }footer { gap: 10px; } }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+
+/* títulos de gráfico levam símbolos (ψ, γ, ω, k): sem caixa alta, que os trocaria por Ψ, Γ, Ω, K */
+.chart-heading h2, .sym { text-transform: none; }
+/* "Ideia física" no mesmo tamanho das demais seções (o <p> sem classe herdava 1rem) */
+#conceptText { margin: 6px 0 0; color: var(--muted); font-size: .72rem; line-height: 1.45; }

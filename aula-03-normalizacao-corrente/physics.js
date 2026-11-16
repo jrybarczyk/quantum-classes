@@ -11,6 +11,8 @@
   };
   const gaussianInterval = (left, right, sigma, center = 0) =>
     0.5 * (erf((right - center) / (Math.sqrt(2) * sigma)) - erf((left - center) / (Math.sqrt(2) * sigma)));
+  // Só com |norma − 1| < 5·10⁻⁴ o peso ∫|Ψ|²dx de um intervalo pode ser chamado de probabilidade.
+  const isNormalized = (norm, tolerance = 5e-4) => Math.abs(norm - 1) < tolerance;
   const uncertaintyProduct = sigma => sigma * (1 / (2 * sigma));
   const continuityRate = (jLeft, jRight) => jLeft - jRight;
 
@@ -64,20 +66,31 @@
   // ψ → ψ·exp(ip₀x + iβx²). p₀ desloca φ(p); β (fase quadrática) alarga φ(p)
   // sem mudar ρ(x): ⟨p²⟩ = ∫|ψ′|²dx + 4β²⟨x²⟩.
   const uncertaintyShapes = Object.freeze({
-    gaussian: { name: "gaussiana", dpBase: dx => 1 / (2 * dx), support: dx => 7 * dx,
+    gaussian: { name: "gaussiana", adjective: "gaussiano", dpBase: dx => 1 / (2 * dx), support: dx => 7 * dx,
       amplitude: (x, dx) => Math.exp(-x * x / (4 * dx * dx)) / Math.pow(2 * Math.PI * dx * dx, .25) },
-    exponential: { name: "exponencial", dpBase: dx => 1 / (Math.SQRT2 * dx), support: dx => 14 * dx,
+    exponential: { name: "exponencial", adjective: "exponencial", dpBase: dx => 1 / (Math.SQRT2 * dx), support: dx => 14 * dx,
       amplitude: (x, dx) => { const lambda = 1 / (Math.SQRT2 * dx); return Math.sqrt(lambda) * Math.exp(-lambda * Math.abs(x)); } },
-    triangular: { name: "triangular", dpBase: dx => Math.sqrt(.3) / dx, support: dx => Math.sqrt(10) * dx,
+    triangular: { name: "triangular", adjective: "triangular", dpBase: dx => Math.sqrt(.3) / dx, support: dx => Math.sqrt(10) * dx,
       amplitude: (x, dx) => { const a = Math.sqrt(10) * dx; return Math.abs(x) < a ? Math.sqrt(1.5 / a) * (1 - Math.abs(x) / a) : 0; } },
   });
 
   function uncertaintyState(kind, dx, p0 = 0, beta = 0) {
     const shape = uncertaintyShapes[kind] || uncertaintyShapes.gaussian;
     const dpBase = shape.dpBase(dx), dp = Math.sqrt(dpBase * dpBase + 4 * beta * beta * dx * dx);
-    return { kind, name: shape.name, dx, dp, dpBase, meanP: p0, beta, product: dx * dp, support: shape.support(dx),
+    return { kind, name: shape.name, adjective: shape.adjective, dx, dp, dpBase, meanP: p0, beta, product: dx * dp, support: shape.support(dx),
       psi: x => { const a = shape.amplitude(x, dx), phase = p0 * x + beta * x * x; return { re: a * Math.cos(phase), im: a * Math.sin(phase) }; },
       density: x => shape.amplitude(x, dx) ** 2 };
+  }
+
+  // Meia largura do eixo p/ℏ da estação de incerteza: simétrica em 0 e fixa em p₀ ∈ [−2, 2]
+  // (o slider vai até |p₀| = 2), para que a distribuição se desloque na tela quando p₀ muda.
+  const momentumAxisHalf = (dp, p0Max = 2) => Math.ceil(p0Max + 4 * dp);
+  // Meia largura do eixo x da estação de corrente: cobre o centro e ±2σ(t) em todo o
+  // intervalo de tempo [0, tMax] (o eixo não anda durante a animação); mínimo 10, máximo 16.
+  function currentAxisHalf(sigma0, k0, tMax, x0 = startPosition(k0)) {
+    const width = sigma0 * Math.sqrt(1 + (tMax / (2 * sigma0 * sigma0)) ** 2);
+    const reach = Math.max(Math.abs(x0), Math.abs(x0 + k0 * tMax)) + 2 * width;
+    return Math.min(16, Math.max(10, 2 * Math.ceil(reach / 2)));
   }
 
   // |φ(p)|² com φ(p) = (2π)^(−1/2) ∫ψ(x)e^(−ipx)dx por Simpson; o passo
@@ -101,7 +114,41 @@
     });
   }
 
-  const api = { gaussianDensity, gaussianInterval, uncertaintyProduct, continuityRate, freePacket, currentFromPsi, currentExact, packetInterval, continuityResidual, startPosition, uncertaintyShapes, uncertaintyState, momentumDensity };
+  // ---------- apresentação: marcas "bonitas" de eixo e números em pt-BR ----------
+  // Marcas em múltiplos de 1, 2 ou 5 × 10ᵏ, sempre incluindo o 0 quando ele está no
+  // intervalo; os rótulos usam as casas decimais do passo (passo 0,2 → 1 casa).
+  // (Extensão de apresentação: não vem da nota; ver GUIA-DIDATICO.md, "Apresentação".)
+  function niceTicks(min, max, target = 5) {
+    const span = max - min;
+    if (!(span > 0) || !Number.isFinite(span)) return { step: 1, digits: 0, ticks: Number.isFinite(min) ? [min] : [] };
+    const raw = span / Math.max(1, target), p = 10 ** Math.floor(Math.log10(raw)), f = raw / p;
+    const step = (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * p, ticks = [];
+    const first = Math.ceil(min / step - 1e-9), last = Math.floor(max / step + 1e-9);
+    for (let i = first; i <= last; i += 1) { const v = i * step; ticks.push(Math.abs(v) < step * 1e-9 ? 0 : Number(v.toFixed(12))); }
+    return { step, digits: Math.max(0, -Math.floor(Math.log10(step) + 1e-9)), ticks };
+  }
+  // Número em pt-BR: vírgula decimal, "−" tipográfico, sem separador de milhar e sem
+  // "−0": valor cujo módulo é menor que meia casa mostrada vira 0.
+  function formatNumber(value, digits = 3) {
+    let n = Number(value);
+    if (!Number.isFinite(n)) return Number.isNaN(n) ? "—" : n > 0 ? "∞" : "−∞";
+    if (Math.abs(n) < 0.5 * 10 ** -digits) n = 0;
+    return n.toLocaleString("pt-BR", { minimumFractionDigits: digits, maximumFractionDigits: digits, useGrouping: false }).replace(/-/g, "−");
+  }
+  // Notação científica em HTML com vírgula decimal: 6,2×10<sup>−8</sup>.
+  function formatScientific(value, digits = 3) {
+    if (!Number.isFinite(value)) return "—";
+    if (value === 0) return formatNumber(0, digits);
+    return scientificFromLog10(Math.log10(Math.abs(value)), digits, value < 0);
+  }
+  // Mesma coisa a partir de log₁₀|v| (para valores abaixo de 10⁻³⁰⁰, que não cabem num double).
+  function scientificFromLog10(log10Value, digits = 3, negative = false) {
+    let exponent = Math.floor(log10Value), mantissa = 10 ** (log10Value - exponent);
+    if (Number(mantissa.toFixed(digits)) >= 10) { mantissa /= 10; exponent += 1; }
+    return `${negative ? "−" : ""}${formatNumber(mantissa, digits)}×10<sup>${String(exponent).replace("-", "−")}</sup>`;
+  }
+
+  const api = { isNormalized, niceTicks, formatNumber, formatScientific, scientificFromLog10, gaussianDensity, gaussianInterval, uncertaintyProduct, continuityRate, freePacket, currentFromPsi, currentExact, packetInterval, continuityResidual, startPosition, uncertaintyShapes, uncertaintyState, momentumDensity, momentumAxisHalf, currentAxisHalf };
   root.QuantumPhysics = api;
   if (typeof module !== "undefined") module.exports = api;
 })(typeof window !== "undefined" ? window : globalThis);

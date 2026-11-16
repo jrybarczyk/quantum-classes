@@ -8,29 +8,30 @@
   const defaults = { blackbody: { temperature: 5800, spectrumAxis: "dimensionless" }, photoelectric: { frequency: 7, workFunction: 2.3, intensity: 1, photoView: "energy" }, compton: { comptonWavelength: 71, comptonAngle: 90 }, matter: { voltage: 2.176091, spacing: .2, braggOrder: 1 }, radiation: { radiationMaterial: "water", radiationEnergy: 2, radiationThickness: 1 } };
   document.querySelector(".tabs").addEventListener("keydown", (event) => { if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return; const tabs = [...document.querySelectorAll("[data-view]")], current = tabs.findIndex(tab => tab.dataset.view === activeView), index = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (current + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length; event.preventDefault(); tabs[index].focus(); switchView(tabs[index].dataset.view); });
 
+  const PANEL_MIN = 320;
   function value(id) { return Number($(id).value); }
-  function fmt(number, digits = 3) { return Number(number).toLocaleString("pt-BR", { maximumFractionDigits: digits, minimumFractionDigits: digits }); }
-  function sci(number, digits = 3) {
-    if (!Number.isFinite(number)) return "—";
-    if (number === 0) return "0";
-    const exponent = Math.floor(Math.log10(Math.abs(number)));
-    return `${fmt(number / 10 ** exponent, digits)}×10<sup>${exponent}</sup>`;
-  }
+  // números em pt-BR (vírgula, "−" tipográfico, sem "−0" nem separador de milhar) e notação científica: physics.js
+  const fmt = P.formatNumber, sci = P.formatScientific;
+  // inteiros com espaço fino como separador de milhar ("5 800 K", "10 000 V"); nunca "5.800", que se lê 5,8
+  const grouped = (n) => Math.round(n).toLocaleString("pt-BR").replace(/\./g, "\u2009");
   function setText(id, text) { $(id).textContent = text; }
   function setHtml(id, html) { $(id).innerHTML = html; }
   function metricRows(rows) { setHtml("metrics", rows.map(([term, result]) => `<div><dt>${term}</dt><dd>${result}</dd></div>`).join("")); }
   function promptRows(rows) { setHtml("prompts", rows.map((row) => `<li>${row}</li>`).join("")); }
   function legend(rows) { setHtml("legend", rows.map(([color, text, dashed]) => `<span><i style="border-color:${color};${dashed ? "border-style:dashed" : ""}"></i>${text}</span>`).join("")); }
 
-  function canvas() {
+  // Altura mínima de 320 px (celular). Com `stacked` e largura < 600 px o canvas fica com dois
+  // quadros empilhados (diagrama em cima, gráfico embaixo) em vez de dois painéis espremidos.
+  function canvas(stacked = false) {
     const element = $("mainCanvas");
     const ratio = Math.max(1, Math.min(2, devicePixelRatio || 1));
     const width = element.clientWidth || 900;
-    const height = width * 590 / 1100;
+    const narrow = stacked && width < 600;
+    const height = narrow ? 2 * PANEL_MIN : Math.max(width * 590 / 1100, PANEL_MIN);
     element.width = Math.round(width * ratio); element.height = Math.round(height * ratio);
     const context = element.getContext("2d"); context.scale(ratio, ratio);
     context.clearRect(0, 0, width, height);
-    return { context, width, height };
+    return { context, width, height, narrow };
   }
   function text(context, label, x, y, color = colors.ink, align = "left", font = "12px Ubuntu, system-ui") {
     context.fillStyle = color; context.textAlign = align; context.font = font; context.fillText(label, x, y);
@@ -48,12 +49,14 @@
     const mapX = (x) => left + (x - options.xMin) * (right - left) / (options.xMax - options.xMin);
     const mapY = (y) => bottom - (y - options.yMin) * (bottom - top) / (options.yMax - options.yMin);
     context.save();
-    const ticks = (min, max, digits) => Array.from({ length: 6 }, (_, index) => { const v = min + index * (max - min) / 5; return { v, label: fmt(v, digits) }; });
-    (options.xTicks || ticks(options.xMin, options.xMax, options.xDigits ?? 1)).forEach(({ v, label }) => {
+    // marcas redondas (1, 2, 5 × 10ᵏ) com 0 e referências; rótulos com as casas do passo (physics.niceTicks)
+    const ticks = (min, max, count) => { const nice = P.niceTicks(min, max, count); return nice.ticks.map((v) => ({ v, label: fmt(v, nice.digits) })); };
+    const count = (pixels, per, lo, hi) => Math.max(lo, Math.min(hi, Math.floor(pixels / per)));
+    (options.xTicks || ticks(options.xMin, options.xMax, count(right - left, 64, 3, 8))).forEach(({ v, label }) => {
       line(context, mapX(v), top, mapX(v), bottom, colors.grid, 1);
       text(context, label, mapX(v), bottom + 17, colors.gray, "center", "10px Ubuntu, system-ui");
     });
-    (options.yTicks || ticks(options.yMin, options.yMax, options.yDigits ?? 1)).forEach(({ v, label }) => {
+    (options.yTicks || ticks(options.yMin, options.yMax, count(bottom - top, 36, 2, 6))).forEach(({ v, label }) => {
       line(context, left, mapY(v), right, mapY(v), colors.grid, 1);
       text(context, label, left - 7, mapY(v) + 3, colors.gray, "right", "10px Ubuntu, system-ui");
     });
@@ -92,7 +95,7 @@
 
   function drawBlackbody() {
     const temperature = value("temperature"), axis = $("spectrumAxis").value, body = P.blackbody(temperature), drawing = canvas();
-    setText("temperatureOut", `${temperature.toLocaleString("pt-BR")} K`);
+    setText("temperatureOut", `${grouped(temperature)} K`);
     if (axis === "dimensionless") {
       chart(drawing.context, { x: 0, y: 0, width: drawing.width, height: drawing.height }, [
         { points: samples(.02, 8, 250, (x) => x ** 3 / Math.expm1(x)), color: colors.green },
@@ -107,22 +110,22 @@
       const plot = chart(drawing.context, { x: 0, y: 0, width: drawing.width, height: drawing.height }, [
         { points: curveAt(temperature), color: colors.green },
         { points: curveAt(2 * temperature), color: colors.warm, dash: [8, 5] },
-      ], { xMin: 0, xMax: maximum / unit, yMin: 0, yMax: 1.1, xLabel: `frequência ν (10${String(exponent).replace(/\d/g, (d) => "⁰¹²³⁴⁵⁶⁷⁸⁹"[d])} Hz)`, yLabel: "u_ν / u_ν,máx(2T)", xDigits: 1, yDigits: 2 });
+      ], { xMin: 0, xMax: maximum / unit, yMin: 0, yMax: 1.1, xLabel: `frequência ν (10${String(exponent).replace(/\d/g, (d) => "⁰¹²³⁴⁵⁶⁷⁸⁹"[d])} Hz)`, yLabel: "u_ν / u_ν,máx(2T)" });
       [[peak, temperature, colors.green], [2 * peak, 2 * temperature, colors.warm]].forEach(([nu, temp, color]) => {
         line(drawing.context, plot.mapX(nu / unit), plot.mapY(P.planckFrequency(nu, temp) / top), plot.mapX(nu / unit), plot.bottom, color, 1.5, [4, 4]);
         dot(drawing.context, plot.mapX(nu / unit), plot.mapY(P.planckFrequency(nu, temp) / top), color, 5);
       });
-      legend([[colors.green, `T = ${temperature.toLocaleString("pt-BR")} K`], [colors.warm, `2T = ${(2 * temperature).toLocaleString("pt-BR")} K`, true]]);
+      legend([[colors.green, `T = ${grouped(temperature)} K`], [colors.warm, `2T = ${grouped(2 * temperature)} K`, true]]);
     } else {
       const peakMicron = body.lambdaPeak * 1e6, maximum = Math.max(2, peakMicron * 4.5);
       const raw = samples(.03, maximum, 260, (lambdaMicron) => P.planckWavelength(lambdaMicron * 1e-6, temperature));
       const scale = Math.max(...raw.map((point) => point.y)); raw.forEach((point) => { point.y /= scale; });
-      const plot = chart(drawing.context, { x: 0, y: 0, width: drawing.width, height: drawing.height }, [{ points: raw, color: colors.green }], { xMin: 0, xMax: maximum, yMin: 0, yMax: 1.08, xLabel: "comprimento de onda λ (μm)", yLabel: "uλ / uλ,máx", xDigits: 2 });
+      const plot = chart(drawing.context, { x: 0, y: 0, width: drawing.width, height: drawing.height }, [{ points: raw, color: colors.green }], { xMin: 0, xMax: maximum, yMin: 0, yMax: 1.08, xLabel: "comprimento de onda λ (μm)", yLabel: "uλ / uλ,máx" });
       visibleBand(drawing.context, plot);
       line(drawing.context, plot.mapX(peakMicron), plot.top, plot.mapX(peakMicron), plot.bottom, colors.warm, 2, [6, 5]);
       legend([[colors.green, "espectro"], [colors.warm, "λmáx", true]]);
     }
-    setText("statusTitle", "Corpo negro"); setText("statusDetail", `T = ${temperature.toLocaleString("pt-BR")} K`);
+    setText("statusTitle", "Corpo negro"); setText("statusDetail", `T = ${grouped(temperature)} K`);
     setText("mainTitle", { dimensionless: "Planck versus Rayleigh–Jeans", absolute: "Espectro absoluto: T e 2T", wavelength: "Espectro em comprimento de onda" }[axis]);
     setText("mainSubtitle", { dimensionless: "a quantização corta a divergência ultravioleta", absolute: "ao dobrar T, o pico dobra de frequência, fica 8× mais alto e a área cresce 16×", wavelength: "o pico obedece λmáxT = constante" }[axis]);
     setText("caption", axis === "absolute"
@@ -130,9 +133,9 @@
       : "A lei clássica acerta hν≪kT, mas atribui kT a um número ilimitado de modos de alta frequência. Planck torna essas excitações energeticamente improváveis.");
     setText("prediction", "Ao dobrar T, λmáx cai pela metade e νmáx dobra. A energia total dobra, quadruplica ou cresce 16 vezes?");
     setHtml("calculation", axis === "absolute"
-      ? `ν<sub>máx</sub> = 2,821 kT/h<br>= 2,821 × (1,3806×10<sup>−23</sup>)(${temperature}) / (6,6261×10<sup>−34</sup>)<br><b>= ${sci(P.blackbodyPeakFrequency(temperature), 3)} Hz</b><small>ao dobrar T: ν<sub>máx</sub> × 2 · u<sub>ν,máx</sub> × 2³ = 8 · U/V × 2⁴ = 16</small>`
+      ? `ν<sub>máx</sub> = 2,821 kT/h<br>= 2,821 × (1,3806×10<sup>−23</sup>)(${temperature}) / (6,6261×10<sup>−34</sup>)<br><b>= ${sci(P.blackbodyPeakFrequency(temperature), 3)} Hz</b><small>ao dobrar T: ν<sub>máx</sub> ×2; altura do pico de u<sub>ν</sub> ×2³ = 8; área (U/V) ×2⁴ = 16</small>`
       : `λ<sub>máx</sub> = b/T<br>= 2,8978×10<sup>−3</sup> m·K / ${temperature} K<br><b>= ${fmt(body.lambdaPeak * 1e9, 1)} nm</b><small>U/V = aT⁴ = ${sci(body.energyDensity, 3)} J·m⁻³</small>`);
-    metricRows([["Temperatura", `${temperature.toLocaleString("pt-BR")} K`], ["λmáx", `${fmt(body.lambdaPeak * 1e9, 1)} nm`], ["νmáx", `${sci(P.blackbodyPeakFrequency(temperature), 3)} Hz`], ["Energia/volume", `${sci(body.energyDensity, 3)} J/m³`], ["Fluxo emitido", `${sci(body.radiatedFlux, 3)} W/m²`]]);
+    metricRows([["Temperatura", `${grouped(temperature)} K`], ["λmáx", `${fmt(body.lambdaPeak * 1e9, 1)} nm`], ["νmáx", `${sci(P.blackbodyPeakFrequency(temperature), 3)} Hz`], ["Energia/volume", `${sci(body.energyDensity, 3)} J/m³`], ["Fluxo emitido", `${sci(body.radiatedFlux, 3)} W/m²`]]);
     setText("conceptTitle", "O problema era a energia por modo"); setHtml("conceptText", "A contagem clássica dos modos permanece. O passo novo é ⟨E⟩ = hν/(e<sup>hν/kT</sup> − 1), em lugar de kT para toda frequência.");
     promptRows(["Na escala absoluta, meça a razão entre as alturas dos picos de 2T e T e compare com 2³.", "Confirme numericamente a escala T⁴ com a energia por volume.", "Explique por que os máximos em ν e λ não são conversões diretas: compare c/νmáx com λmáx."]);
   }
@@ -149,7 +152,7 @@
         { points: samples(vMin, vMax, 300, (v) => P.photocurrent(v, frequency, phi, intensity)), color: colors.green },
         { points: samples(vMin, vMax, 300, (v) => P.photocurrent(v, frequency, phi, 2 * intensity)), color: colors.green, dash: [8, 5], width: 2 },
         { points: samples(vMin, vMax, 300, (v) => P.photocurrent(v, higher, phi, intensity)), color: colors.warm, dash: [2, 4], width: 2.2 },
-      ], { xMin: vMin, xMax: vMax, yMin: 0, yMax: iMax, xLabel: "tensão do anodo V (V) · negativa = frenagem", yLabel: "fotocorrente relativa", xDigits: 1, yDigits: 1 });
+      ], { xMin: vMin, xMax: vMax, yMin: 0, yMax: iMax, xLabel: "tensão do anodo V (V) · negativa = frenagem", yLabel: "fotocorrente relativa" });
       line(drawing.context, plot.mapX(0), plot.top, plot.mapX(0), plot.bottom, colors.gray, 1, [3, 3]);
       if (result.emitted) {
         line(drawing.context, plot.mapX(-result.stoppingVoltage), plot.top, plot.mapX(-result.stoppingVoltage), plot.bottom, colors.red, 2, [6, 5]);
@@ -158,9 +161,15 @@
       legend([[colors.green, `intensidade ${fmt(intensity, 2)}×`], [colors.green, `intensidade ${fmt(2 * intensity, 2)}×`, true], [colors.warm, `ν + 2×10¹⁴ Hz`, true], [colors.red, "potencial de frenagem", true]]);
     } else {
       const maxX = 12, maxY = Math.max(4, P.photoelectric(maxX * 1e14, phi).kineticEV * 1.15), thresholdX = result.thresholdFrequency / 1e14;
-      const curve = samples(thresholdX, maxX, 160, (x) => P.photoelectric(x * 1e14, phi).kineticEV);
+      const inRange = thresholdX < maxX;
+      const curve = inRange ? samples(thresholdX, maxX, 160, (x) => P.photoelectric(x * 1e14, phi).kineticEV) : [];
       const plot = chart(drawing.context, { x: 0, y: 0, width: drawing.width, height: drawing.height }, [{ points: curve, color: colors.green }], { xMin: 0, xMax: maxX, yMin: 0, yMax: maxY, xLabel: "frequência ν (10¹⁴ Hz)", yLabel: "Kmáx = eVs (eV)" });
-      line(drawing.context, plot.mapX(thresholdX), plot.top, plot.mapX(thresholdX), plot.bottom, colors.red, 2, [6, 5]);
+      if (inRange) line(drawing.context, plot.mapX(thresholdX), plot.top, plot.mapX(thresholdX), plot.bottom, colors.red, 2, [6, 5]);
+      else {
+        // Φ grande: o corte ν₀ = Φ/h passa de 12×10¹⁴ Hz (limite do slider); sem aviso a reta sumiria
+        text(drawing.context, `corte ν₀ = ${fmt(thresholdX, 2)}×10¹⁴ Hz: fora do intervalo do slider (ν ≤ ${maxX}×10¹⁴ Hz)`, (plot.left + plot.right) / 2, plot.top + 40, colors.red, "center", "11px Ubuntu, system-ui");
+        text(drawing.context, "nenhum fóton do slider tem energia para arrancar elétrons", (plot.left + plot.right) / 2, plot.top + 58, colors.red, "center", "11px Ubuntu, system-ui");
+      }
       dot(drawing.context, plot.mapX(frequency / 1e14), plot.mapY(result.kineticEV), result.emitted ? colors.warm : colors.red, 6);
       const photons = Math.round(4 + intensity * 9); for (let index = 0; index < photons; index += 1) dot(drawing.context, plot.left + 18 + index * Math.min(17, (plot.right - plot.left - 30) / photons), plot.top + 14, colors.lime, 3);
       legend([[colors.green, "Kmáx(ν)"], [colors.red, "frequência de corte", true], [colors.warm, "estado escolhido"]]);
@@ -178,11 +187,13 @@
   }
 
   function drawCompton() {
-    const wavelength = value("comptonWavelength") * 1e-12, angle = value("comptonAngle"), result = P.compton(wavelength, angle), drawing = canvas(), context = drawing.context;
+    const wavelength = value("comptonWavelength") * 1e-12, angle = value("comptonAngle"), result = P.compton(wavelength, angle), drawing = canvas(true), context = drawing.context;
     setText("comptonWavelengthOut", `${fmt(wavelength * 1e12, 0)} pm`); setText("comptonAngleOut", `${fmt(angle, 0)}°`);
-    const split = drawing.width * .48, centerX = split * .48, centerY = drawing.height * .48, length = Math.min(split * .23, drawing.height * .3), theta = angle * Math.PI / 180;
+    // largura estreita: diagrama em cima (320 px) e gráfico de Δλ(θ) embaixo, ambos na largura toda
+    const stack = drawing.narrow, split = stack ? drawing.width : drawing.width * .48, boxHeight = stack ? PANEL_MIN : drawing.height;
+    const centerX = split * (stack ? .46 : .48), centerY = boxHeight * .48, length = Math.min(split * (stack ? .24 : .23), boxHeight * .3), theta = angle * Math.PI / 180;
     text(context, "evento de colisão", split * .5, 28, colors.gray, "center", "700 11px Ubuntu, system-ui");
-    // comprimentos das setas proporcionais aos momentos: p_γ = p_γ′ + p_e
+    // comprimentos das setas proporcionais aos momentos: balanço de momento incidente = espalhado + elétron
     const scale = length / result.incidentMomentum, scattered = result.scatteredMomentum * scale;
     line(context, centerX, centerY, centerX + length, centerY, colors.grid, 1.5, [5, 4]);
     arrow(context, centerX - length, centerY, centerX - 6, centerY, colors.green, 4); text(context, `γ · ${fmt(wavelength * 1e12, 0)} pm`, centerX - length, centerY - 14, colors.green);
@@ -197,13 +208,13 @@
       arrow(context, centerX + 6 * Math.cos(phi), centerY + 6 * Math.sin(phi), centerX + electron * Math.cos(phi), centerY + electron * Math.sin(phi), colors.gray, 3);
       text(context, `e⁻ · φ = ${fmt(result.electronAngle, 1)}°`, Math.min(split - 50, centerX + electron * Math.cos(phi)), centerY + electron * Math.sin(phi) + 20, colors.gray, "center");
     }
-    text(context, "setas em escala de momento", split * .5, drawing.height - 18, colors.gray, "center", "10px Ubuntu, system-ui");
+    text(context, "setas em escala de momento", split * .5, boxHeight - 18, colors.gray, "center", "10px Ubuntu, system-ui");
     const curve = samples(0, 180, 181, (degrees) => P.compton(wavelength, degrees).shift * 1e12);
-    const plot = chart(context, { x: split, y: 0, width: drawing.width - split, height: drawing.height }, [{ points: curve, color: colors.green }], { xMin: 0, xMax: 180, yMin: 0, yMax: 5.1, xLabel: "ângulo θ (graus)", yLabel: "Δλ (pm)", xDigits: 0 });
+    const plot = chart(context, stack ? { x: 0, y: boxHeight, width: drawing.width, height: boxHeight } : { x: split, y: 0, width: drawing.width - split, height: drawing.height }, [{ points: curve, color: colors.green }], { xMin: 0, xMax: 180, yMin: 0, yMax: 5.1, xLabel: "ângulo θ (graus)", yLabel: "Δλ (pm)", xTicks: [0, 45, 90, 135, 180].map((v) => ({ v, label: String(v) })) });
     dot(context, plot.mapX(angle), plot.mapY(result.shift * 1e12), colors.warm, 6); legend([[colors.green, "Δλ(θ)"], [colors.warm, "estado escolhido"]]);
     setText("statusTitle", "Efeito Compton"); setText("statusDetail", `θ=${fmt(angle, 0)}° · Δλ=${fmt(result.shift * 1e12, 3)} pm`);
     setText("mainTitle", "Colisão relativística fóton–elétron"); setText("mainSubtitle", "conservação de energia e momento em um evento localizado");
-    setText("caption", "No diagrama, o comprimento de cada seta é proporcional ao momento: p_γ = p_γ′ + p_e. O elétron recua do lado oposto ao fóton, com cot φ = (1 + Eγ/mₑc²)·tan(θ/2). O deslocamento Δλ depende apenas do alvo e do ângulo; a fração de energia transferida também depende de λ.");
+    setHtml("caption", "No diagrama, o comprimento de cada seta é proporcional ao momento: p<sub>γ</sub> = p<sub>γ′</sub> + p<sub>e</sub>. O elétron recua do lado oposto ao fóton, com cot φ = (1 + Eγ/mₑc²)·tan(θ/2). O deslocamento Δλ depende apenas do alvo e do ângulo; a fração de energia transferida também depende de λ.");
     setText("prediction", "O deslocamento máximo ocorre a 90° ou 180°? Mudar λ altera Δλ no mesmo ângulo?");
     setHtml("calculation", `Δλ = λ<sub>C</sub>(1−cos θ)<br>= 2,426 pm [1−cos(${fmt(angle, 0)}°)]<br><b>= ${fmt(result.shift * 1e12, 4)} pm</b><small>λ′ = ${fmt(wavelength * 1e12, 3)} + ${fmt(result.shift * 1e12, 3)} = ${fmt(result.scatteredWavelength * 1e12, 3)} pm</small>`);
     metricRows([["λ espalhado", `${fmt(result.scatteredWavelength * 1e12, 3)} pm`], ["Eγ", `${fmt(result.incidentEnergyEV / 1000, 3)} keV`], ["Eγ′", `${fmt(result.scatteredEnergyEV / 1000, 3)} keV`], ["K do elétron", `${fmt(result.electronKineticEV / 1000, 3)} keV`], ["p do elétron", `${sci(result.electronMomentum, 3)} kg·m/s`], ["recuo φ", result.electronAngle === null ? "sem colisão" : `${fmt(result.electronAngle, 2)}°`]]);
@@ -212,42 +223,50 @@
   }
 
   function drawMatter() {
-    const voltage = P.fromLogSlider(value("voltage")), spacing = value("spacing") * 1e-9, order = value("braggOrder"), wave = P.deBroglieElectron(voltage), angle = P.braggAngle(wave.relativisticWavelength, spacing, order), drawing = canvas(), context = drawing.context;
-    // Tensão sempre em volts e energia sempre em elétron-volts (K = e·V), com espaço
-    // fino como separador de milhar: "5 000 V" não se confunde com 5,000.
-    const grouped = (n) => Math.round(n).toLocaleString("pt-BR").replace(/\./g, "\u2009");
+    const voltage = P.fromLogSlider(value("voltage")), spacing = value("spacing") * 1e-9, order = value("braggOrder"), wave = P.deBroglieElectron(voltage), angle = P.braggAngle(wave.relativisticWavelength, spacing, order), drawing = canvas(true), context = drawing.context;
+    // Tensão sempre em volts e energia sempre em elétron-volts (K = e·V).
     setText("voltageOut", `${grouped(voltage)} V → K = ${grouped(voltage)} eV`); setText("spacingOut", `${fmt(spacing * 1e9, 3)} nm`);
-    const split = drawing.width * .46, baseY = drawing.height * .67;
-    text(context, "difração no cristal", split * .5, 28, colors.gray, "center", "700 11px Ubuntu, system-ui");
+    // largura estreita (celular): diagrama de Bragg em cima e λ(V) embaixo, empilhados
+    const stack = drawing.narrow, split = stack ? drawing.width : drawing.width * .46, boxHeight = stack ? PANEL_MIN : drawing.height;
+    // escala do diagrama pela altura do quadro (antes, gap e baseY fixos davam alcance negativo em canvas baixo)
+    const unit = Math.min(1.15, boxHeight / 482), baseY = boxHeight * .67;
+    text(context, "difração no cristal", split * .5, 28 * Math.max(unit, .8), colors.gray, "center", "700 11px Ubuntu, system-ui");
     // planos cristalinos (espaçamento fora de escala) e dois raios refletidos com o θ calculado
-    const gap = 48, topPlane = baseY - 2 * gap, hitX = split * .5;
-    for (let index = 0; index < 4; index += 1) line(context, 30, topPlane + index * gap, split - 20, topPlane + index * gap, colors.grid, 2);
-    const drawn = angle === null ? 35 : angle, theta = drawn * Math.PI / 180, reach = Math.min(split * .42, (topPlane - 75) / Math.max(Math.sin(theta), .05));
+    const gap = 48 * unit, topPlane = baseY - 2 * gap, hitX = split * .5;
+    for (let index = 0; index < 4; index += 1) line(context, 24, topPlane + index * gap, split - 16, topPlane + index * gap, colors.grid, 2);
+    const drawn = angle === null ? 35 : angle, theta = drawn * Math.PI / 180;
+    const reach = Math.max(24, Math.min(split * .4, (topPlane - 78 * Math.max(unit, .8)) / Math.max(Math.sin(theta), .05)));
     [[0, colors.green, colors.warm, 4], [gap, "#7f95b8", "#8fb89a", 2.5]].forEach(([depth, inColor, outColor, width]) => {
       const y = topPlane + depth, x = hitX;
       arrow(context, x - reach * Math.cos(theta), y - reach * Math.sin(theta), x - 4, y - 2, inColor, width);
       if (angle !== null) arrow(context, x + 2, y - 2, x + reach * Math.cos(theta), y - reach * Math.sin(theta), outColor, width);
     });
-    context.strokeStyle = colors.warm; context.lineWidth = 1.5; context.beginPath(); context.arc(hitX, topPlane, 34, Math.PI, Math.PI + theta, false); context.stroke();
-    text(context, angle === null ? "nλ > 2d: sem máximo nesta ordem" : `θ = ${fmt(angle, 2)}° (arco no ponto de reflexão)`, split * .5, 50, angle === null ? colors.red : colors.warm, "center", "700 12px Ubuntu, system-ui");
-    line(context, hitX + 14, topPlane, hitX + 14, topPlane + gap, colors.gray, 1, [3, 3]);
-    text(context, `d = ${fmt(spacing * 1e9, 3)} nm`, hitX + 20, topPlane + gap / 2 + 4, colors.gray);
-    if (angle !== null) text(context, `diferença de caminho 2d sen θ = ${order}λ`, split * .5, topPlane + 3 * gap + 26, colors.gray, "center", "11px Ubuntu, system-ui");
+    context.strokeStyle = colors.warm; context.lineWidth = 1.5; context.beginPath(); context.arc(hitX, topPlane, 34 * unit, Math.PI, Math.PI + theta, false); context.stroke();
+    text(context, angle === null ? "nλ > 2d: sem máximo nesta ordem" : `θ = ${fmt(angle, 2)}°`, split * .5, 52 * Math.max(unit, .8), angle === null ? colors.red : colors.warm, "center", "700 12px Ubuntu, system-ui");
+    // d entre o 2º e o 3º planos: abaixo do último raio, onde nada cruza o rótulo
+    line(context, hitX + 14, topPlane + gap, hitX + 14, topPlane + 2 * gap, colors.gray, 1, [3, 3]);
+    text(context, `d = ${fmt(spacing * 1e9, 3)} nm`, hitX + 20, topPlane + 1.5 * gap + 4, colors.gray);
+    if (angle !== null) text(context, `2d sen θ = ${order}λ`, split * .5, topPlane + 3 * gap + 26 * Math.max(unit, .8), colors.gray, "center", "11px Ubuntu, system-ui");
     // tensão em escala log: x = log10(V)
     const voltages = samples(1, 4, 260, (logV) => P.deBroglieElectron(10 ** logV).relativisticWavelength * 1e9);
     const xTicks = [1, 2, 3, 4].map((v) => ({ v, label: `${grouped(10 ** v)} V` }));
-    const plot = chart(context, { x: split, y: 0, width: drawing.width - split, height: drawing.height }, [{ points: voltages, color: colors.green }], { xMin: 1, xMax: 4.12, yMin: 0, yMax: .4, xLabel: "tensão aceleradora V, em volts (escala log)", yLabel: "λ de de Broglie (nm)", xTicks, yDigits: 2 });
-    line(context, plot.left, plot.mapY(spacing * 1e9), plot.right, plot.mapY(spacing * 1e9), colors.gray, 1.2, [5, 4]);
-    text(context, "λ = d", plot.right - 4, plot.mapY(spacing * 1e9) - 5, colors.gray, "right", "10px Ubuntu, system-ui");
+    const plot = chart(context, stack ? { x: 0, y: boxHeight, width: drawing.width, height: boxHeight } : { x: split, y: 0, width: drawing.width - split, height: drawing.height }, [{ points: voltages, color: colors.green }], { xMin: 1, xMax: 4.12, yMin: 0, yMax: .4, xLabel: stack ? "tensão V (volts, escala log)" : "tensão aceleradora V, em volts (escala log)", yLabel: "λ de de Broglie (nm)", xTicks });
+    // condição de Bragg: há máximo de ordem n enquanto λ ≤ 2d/n (e não λ = d)
+    const limitNm = 2 * spacing * 1e9 / order, limitLabel = `λ = 2d/n = ${fmt(limitNm, 3)} nm`;
+    if (limitNm <= .4 + 1e-9) {
+      const y = plot.mapY(Math.min(limitNm, .4)), nearTop = y - plot.top < 14;   // linha rente ao teto: rótulo abaixo dela
+      line(context, plot.left, y, plot.right, y, colors.gray, 1.2, [5, 4]);
+      text(context, stack ? `2d/n = ${fmt(limitNm, 3)} nm` : limitLabel, plot.right - 4, nearTop ? y + 14 : y - 5, colors.gray, "right", "10px Ubuntu, system-ui");
+    } else text(context, `limite de Bragg 2d/n = ${fmt(limitNm, 3)} nm (acima da escala)`, plot.right - 4, plot.top + 12, colors.gray, "right", "10px Ubuntu, system-ui");
     dot(context, plot.mapX(Math.log10(voltage)), plot.mapY(wave.relativisticWavelength * 1e9), colors.warm, 6); legend([[colors.green, "λ(V) relativístico"], [colors.warm, "estado escolhido"]]);
     setText("statusTitle", "de Broglie e Bragg"); setText("statusDetail", angle === null ? "nenhum máximo nesta ordem" : `λ=${fmt(wave.relativisticWavelength * 1e9, 4)} nm · θ=${fmt(angle, 2)}°`);
     setText("mainTitle", "Comprimento de onda do elétron"); setText("mainSubtitle", "a escala atômica torna o cristal uma rede de difração");
-    setText("caption", "A curva inclui a correção relativística. Na faixa baixa de tensão ela coincide visualmente com λ=h/√(2mₑeV); a diferença cresce com a energia.");
+    setText("caption", "A curva inclui a correção relativística. Na faixa baixa de tensão ela coincide visualmente com λ=h/√(2mₑeV); a diferença cresce com a energia. A linha tracejada é o limite de Bragg: com 2d sen θ = nλ só há máximo de ordem n se λ ≤ 2d/n; a ordem n=1 já exige λ ≤ 2d.");
     setText("prediction", "Quadruplicar V reduz λ por 2 ou por 4 no regime não relativístico? Quando uma ordem de Bragg deixa de existir?");
     // A conta aberta mostra as duas formas, mas o λ em negrito é o relativístico, o mesmo
     // usado no gráfico, no ângulo de Bragg e nas leituras (a 5 kV: 2,479°, e não 2,485°).
     const pcEV = Math.sqrt(voltage ** 2 + 2 * voltage * P.constants.electronRestEnergyEV);
-    setHtml("calculation", `K = e·V = ${grouped(voltage)} eV<br>não relativística: λ ≈ 12,26/√V Å = 12,26/√${voltage} Å = ${fmt(wave.classicalWavelength * 1e10, 4)} Å<br>relativística: pc = √(K² + 2K·mₑc²) = √(${grouped(voltage)}² + 2·${grouped(voltage)}·510${"\u2009"}999) eV = ${grouped(pcEV)} eV<br>λ = hc/pc = 12${"\u2009"}398,4 eV·Å / ${grouped(pcEV)} eV <b>= ${fmt(wave.relativisticWavelength * 1e10, 4)} Å</b><small>2d sen θ = nλ, com o λ relativístico → ${angle === null ? "nλ&gt;2d: sem solução" : `θ=${fmt(angle, 3)}°`}</small>`);
+    setHtml("calculation", `K = e·V = ${grouped(voltage)} eV<br>não relativística: λ ≈ 12,264/√V Å = 12,264/√${voltage} Å = ${fmt(wave.classicalWavelength * 1e10, 4)} Å<br>relativística: pc = √(K² + 2K·mₑc²) = √(${grouped(voltage)}² + 2·${grouped(voltage)}·510${"\u2009"}999) eV = ${grouped(pcEV)} eV<br>λ = hc/pc = 12${"\u2009"}398,4 eV·Å / ${grouped(pcEV)} eV <b>= ${fmt(wave.relativisticWavelength * 1e10, 4)} Å</b><small>2d sen θ = nλ, com o λ relativístico → ${angle === null ? "nλ&gt;2d: sem solução" : `θ=${fmt(angle, 3)}°`}</small>`);
     metricRows([["Tensão V", `${grouped(voltage)} V`], ["Energia cinética K = e·V", `${grouped(voltage)} eV`], ["λ não relativístico", `${fmt(wave.classicalWavelength * 1e9, 5)} nm`], ["λ relativístico", `${fmt(wave.relativisticWavelength * 1e9, 5)} nm`], ["Correção relativa", `${fmt(100 * wave.relativeError, 4)}%`], ["Ângulo de Bragg (λ relativístico)", angle === null ? "não permitido" : `${fmt(angle, 3)}°`]]);
     setText("conceptTitle", "Momento também define uma escala ondulatória"); setText("conceptText", "A difração não significa uma órbita ondulada. Ela revela interferência entre amplitudes associadas a caminhos indistinguíveis.");
     promptRows(["Recupere aproximadamente 1,67 Å em 54 V.", "Teste a validade não relativística em 150 V e 5 kV.", "Varie d e n e identifique ordens proibidas."]);
@@ -276,7 +295,10 @@
     const yTicks = [-4, -3, -2, -1, 0, 1, 2, 3].map(v => ({ v, label: `10${superscript(v)}` }));
     const plot = chart(drawing.context, { x: 0, y: 0, width: drawing.width, height: drawing.height }, series, { xMin: 1, xMax: 4.3, yMin: -4, yMax: 3.3, xLabel: "energia do fóton (escala log)", yLabel: "μ/ρ (cm²/g, escala log)", xTicks, yTicks });
     line(drawing.context, plot.mapX(Math.log10(1022)), plot.top, plot.mapX(Math.log10(1022)), plot.bottom, "#8065b8", 1.5, [5, 4]);
-    text(drawing.context, "limiar de pares 1,022 MeV", plot.mapX(Math.log10(1022)) + 5, plot.top + 14, "#8065b8", "left", "10px Ubuntu, system-ui");
+    { const pairLabel = drawing.width < 600 ? "pares: 1,022 MeV" : "limiar de pares 1,022 MeV", px = plot.mapX(Math.log10(1022));
+      drawing.context.font = "10px Ubuntu, system-ui";
+      const fits = px + 5 + drawing.context.measureText(pairLabel).width <= plot.right;
+      text(drawing.context, pairLabel, fits ? px + 5 : px - 5, plot.top + 14, "#8065b8", fits ? "left" : "right", "10px Ubuntu, system-ui"); }
     edges.filter(edge => edge > .02).forEach(edge => text(drawing.context, `borda K · ${fmt(edge * 1000, 1)} keV`, plot.mapX(Math.log10(edge * 1000)) + 5, plot.mapY(Math.log10(P.radiationInteraction(materialKey, edge, 1).totalMass)) - 8, colors.warm, "left", "10px Ubuntu, system-ui"));
     line(drawing.context, plot.mapX(logKeV), plot.top, plot.mapX(logKeV), plot.bottom, colors.red, 1.2, [3, 3]);
     dot(drawing.context, plot.mapX(logKeV), plot.mapY(Math.log10(result.totalMass)), colors.red, 6);
@@ -285,11 +307,15 @@
     setText("radiationThicknessOut", `${fmt(thickness, 1)} cm`);
     setText("statusTitle", "Fótons e matéria"); setText("statusDetail", `${result.material.name} · ${labels[result.dominant]}`);
     setText("mainTitle", "Aplicação: atenuação de raios X e γ"); setText("mainSubtitle", "os coeficientes macroscópicos revelam canais microscópicos quantizados");
-    setText("caption", "Seções de choque do NIST XCOM, interpoladas em log-log; os dois eixos são logarítmicos. Os saltos verticais são bordas de absorção: acima delas o fóton tem energia para arrancar elétrons de uma camada mais interna (K do chumbo: 88,0 keV). Pares exigem Eγ ≥ 2mₑc² = 1,022 MeV. A partilha foto · Compton · pares não fecha 100 %: o restante é espalhamento coerente (Rayleigh), sem transferência de energia ao meio. Limite: a lei exponencial vale para feixe estreito e detector colimado; num paciente o espalhado atinge o detector (buildup) e a energia depositada é dada por μ_en/ρ, não por μ/ρ.");
+    setHtml("caption", "Seções de choque do NIST XCOM, interpoladas em log-log; os dois eixos são logarítmicos. Os saltos verticais são bordas de absorção: acima delas o fóton tem energia para arrancar elétrons de uma camada mais interna (K do chumbo: 88,0 keV). Pares exigem Eγ ≥ 2mₑc² = 1,022 MeV. A partilha foto · Compton · pares não fecha 100 %: o restante é espalhamento coerente (Rayleigh), sem transferência de energia ao meio. Limite: a lei exponencial vale para feixe estreito e detector colimado; num paciente o espalhado atinge o detector (buildup) e a energia depositada é dada por μ<sub>en</sub>/ρ, não por μ/ρ.");
     setText("prediction", "Ao aumentar a energia, qual canal passa a dominar? O chumbo atenua mais logo abaixo ou logo acima de 88 keV?");
-    setHtml("calculation", `μ = ρ(μ/ρ)<br>= ${fmt(result.material.density, 2)} × ${fmt(result.totalMass, 4)}<br><b>= ${fmt(result.linear, 4)} cm<sup>−1</sup></b><small>I/I<sub>0</sub> = e<sup>−μx</sup> = ${result.transmission < 1e-3 ? sci(result.transmission, 2) : fmt(result.transmission, 4)}</small>`);
+    // log₁₀(I/I₀) = −μx/ln 10 vem de physics.js: exp(−μx) estoura para 0 (chumbo, 10 cm, 90 keV: ~10⁻³⁵⁸)
+    const small = result.transmission < 1e-3;
+    const transmissionText = small ? P.scientificFromLog10(result.log10Transmission, 2) : fmt(result.transmission, 4);
+    const transmissionPercent = small ? `${P.scientificFromLog10(result.log10Transmission + 2, 2)}%` : `${fmt(100 * result.transmission, 2)}%`;
+    setHtml("calculation", `μ = ρ(μ/ρ)<br>= ${fmt(result.material.density, 2)} × ${fmt(result.totalMass, 4)}<br><b>= ${fmt(result.linear, 4)} cm<sup>−1</sup></b><small>I/I<sub>0</sub> = e<sup>−μx</sup> = ${transmissionText}</small>`);
     const share = key => `${fmt(100 * result[key] / result.totalMass, 0)}%`;
-    metricRows([["Energia", energyLabel(energyKeV)], ["Canal dominante", labels[result.dominant]], ["μ/ρ total", `${fmt(result.totalMass, 4)} cm²/g`], ["foto · Compton · pares", `${share("photoelectric")} · ${share("compton")} · ${share("pair")}`], ["μ linear", `${fmt(result.linear, 4)} cm⁻¹`], ["Transmissão", result.transmission < 1e-3 ? `${sci(100 * result.transmission, 2)}%` : `${fmt(100 * result.transmission, 2)}%`]]);
+    metricRows([["Energia", energyLabel(energyKeV)], ["Canal dominante", labels[result.dominant]], ["μ/ρ total", `${fmt(result.totalMass, 4)} cm²/g`], ["foto · Compton · pares", `${share("photoelectric")} · ${share("compton")} · ${share("pair")}`], ["μ linear", `${fmt(result.linear, 4)} cm⁻¹`], ["Transmissão", transmissionPercent]]);
     setText("conceptTitle", "Atenuação não é uma nova lei quântica"); setText("conceptText", "Beer–Lambert descreve o feixe em escala macroscópica. Os coeficientes que entram nela somam probabilidades de processos quânticos distintos, cada um com sua dependência em E e Z.");
     promptRows(["Compare água e osso em 50 keV: qual canal explica o contraste de uma radiografia?", "Use os presets Pb · 85 keV e Pb · 90 keV: o que acontece com μ/ρ ao cruzar a borda K? Por que isso importa para a blindagem?", "Suba acima de 1,022 MeV: em qual material os pares passam a dominar dentro da faixa, e por quê?"]);
   }
@@ -307,5 +333,7 @@
   document.querySelectorAll("[data-set]").forEach((button) => button.addEventListener("click", () => { const ids = button.dataset.set.split(","), values = button.dataset.value.split(","); ids.forEach((id, index) => { $(id).value = values[index]; }); render(); }));
   $("resetBtn").addEventListener("click", () => { Object.entries(defaults[activeView]).forEach(([id, value]) => { $(id).value = value; }); render(); });
   window.addEventListener("resize", render);
+  // Estado inicial por URL (como nas demais aplicações): ?view=photoelectric&frequency=12&workFunction=5.5
+  new URLSearchParams(location.search).forEach((val, key) => { const e = document.getElementById(key); if (e && (e.tagName === "INPUT" || e.tagName === "SELECT") && key !== "view") e.value = val; });
   switchView(activeView);
 })();

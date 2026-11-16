@@ -107,7 +107,19 @@
   // Tensao de deplecao planar: V = e N_D d^2 / (2 eps_r eps0); N_D em cm^-3, d em cm, resultado em V.
   function depletionVoltage(ND, dCm) { return E_CHARGE_C * ND * 1e6 * (dCm * 1e-2) ** 2 / (2 * EPS_R_GE * EPS0_F_PER_M); }
 
+
+  // Marcas "bonitas" de eixo (passos 1, 2, 5 × 10^k), com 0 e valores redondos;
+  // casas decimais do rótulo = tickDecimals(step). Extensão didática (não está na nota).
+  function niceTicks(min, max, target = 5) {
+    const span = max - min, raw = span / Math.max(1, target), p = 10 ** Math.floor(Math.log10(raw)), f = raw / p;
+    const step = (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * p, out = [];
+    for (let v = Math.ceil(min / step - 1e-9) * step; v <= max + step * 1e-9; v += step) out.push(Math.abs(v) < step * 1e-9 ? 0 : Number(v.toFixed(12)));
+    return { step, ticks: out };
+  }
+  function tickDecimals(step) { return Math.max(0, -Math.floor(Math.log10(step) + 1e-9)); }
+
   return {
+    niceTicks, tickDecimals,
     HBAR2_OVER_2ME_EV_NM2, KB_EV_PER_K, GE_CELL_NM,
     boundKappa, boundEnergy, boundPsi, boundPsiPrime, psiPrimeJump, jumpCondition,
     meanX2, deltaX, deltaP, uncertaintyProduct,
