@@ -1,5 +1,5 @@
-/* Complementos da aula 6 sobre ../_shared/dashboard.css (cinco abas, equação, presets). */
-.tabs { grid-template-columns: repeat(5, 1fr); }
+/* Complementos da aula 6 sobre ../_shared/dashboard.css (seis abas, equação, presets). */
+.tabs { grid-template-columns: repeat(6, 1fr); }
 .equation { margin: 4px 0 12px; padding: 9px 10px; border-left: 3px solid var(--dark); border-radius: 0 6px 6px 0; background: #f4f7f2; font-family: Georgia, serif; font-size: .8rem; line-height: 1.45; }
 .presets { display: grid; gap: 7px; margin-top: 10px; }
 .presets button { min-height: 32px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--dark); font-size: .7rem; text-align: left; cursor: pointer; }
@@ -12,3 +12,47 @@
 @media (max-width: 760px) { .tabs { grid-template-columns: 1fr 1fr; } }
 #conceptText { margin: 8px 0 0; font-size: .74rem; line-height: 1.5; }
 .calculation .warn { color: #a4372a; font-weight: 700; }
+
+/* Estação 01 · caixas e fichas */
+.secondary-panel canvas { max-height: none; }
+.seg { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.seg button { flex: 1 1 auto; min-height: 32px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--muted); font-size: .7rem; cursor: pointer; }
+.seg button.active { border-color: var(--dark); background: #f4faef; color: var(--ink); font-weight: 700; box-shadow: inset 0 -3px var(--green); }
+.seg.sub button { font-size: .66rem; }
+.seg[hidden] { display: none; }
+.box-predict { margin: 10px 0 12px; padding: 12px; border: 1px solid #e8c78f; border-radius: 7px; background: #fff9ef; }
+.box-predict > span { color: #a66c17; font-size: .64rem; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+.box-predict p { margin: 6px 0; font-size: .74rem; line-height: 1.45; }
+.box-predict #predLock { width: 100%; min-height: 34px; margin-top: 4px; border: 1px solid #a66c17; border-radius: 6px; background: #a66c17; color: #fff; font-size: .72rem; cursor: pointer; }
+.box-predict #predLock:disabled { border-color: var(--line); background: #efe7d8; color: #8a7c63; cursor: not-allowed; }
+.pred-choices { margin: 6px 0; }
+.view-controls .pred-choices label { display: flex; align-items: flex-start; gap: 8px; margin: 6px 0; font-size: .72rem; line-height: 1.4; cursor: pointer; }
+.view-controls .pred-choices input { width: auto; margin-top: 2px; }
+.pred-feedback { color: var(--ink); font-size: .7rem !important; }
+.lock-note { margin: 4px 0 8px; padding: 6px 8px; border-left: 3px solid #a66c17; background: #fff9ef; color: #7a5413; font-size: .68rem; }
+.block-controls { display: none; min-width: 0; margin: 0; padding: 0; border: 0; }
+.block-controls.active { display: block; }
+.block-controls legend { padding: 0; color: var(--gray); font-size: .7rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.block-controls[disabled] { opacity: .5; }
+.block-controls .state-select { display: grid; margin: 12px 0; }
+.boxes-ctl { margin: 8px 0; }
+.boxrow { display: grid; grid-template-columns: 34px 1fr 1fr; align-items: center; gap: 4px 8px; margin: 6px 0; padding-bottom: 6px; border-bottom: 1px dashed var(--line); }
+.boxrow.withq { grid-template-columns: 34px 1fr 1fr 54px; }
+.boxrow.head { padding-bottom: 2px; border: 0; color: var(--muted); font-size: .62rem; font-weight: 700; }
+.boxrow b { font-size: .78rem; }
+.view-controls .boxrow input { grid-column: auto; width: 100%; min-width: 0; }
+.boxrow select { min-width: 0; padding: 3px; font-size: .72rem; }
+.boxrow output { grid-column: 2 / -1; color: var(--muted) !important; font-size: .64rem !important; font-weight: 400 !important; }
+.break-band { padding: 12px 15px; border: 1px solid #e0c3bd; border-left: 4px solid #c65c4b; border-radius: 10px; background: #fff8f6; }
+.break-band h2 { color: #a4372a; }
+.break-band p { margin: 6px 0; font-size: .72rem; line-height: 1.5; }
+.break-band .misconception b, .break-band .countermeasure b { color: #a4372a; }
+.dict div { padding: 4px 0; }
+.dict dt { font-weight: 700; }
+.dict dd { max-width: 70%; color: var(--muted); font-size: .66rem; font-weight: 400; }
+details summary { cursor: pointer; font-size: .72rem; font-weight: 700; color: var(--dark); }
+.mini-ficha { display: none; width: 100%; height: 108px; margin: 6px 0; border: 1px solid #e8c78f; border-radius: 6px; background: #fbfcfa; }
+@media (max-width: 760px) { .mini-ficha:not(.off) { display: block; } }
+.box-predict .why { display: grid; gap: 3px; margin: 8px 0 6px; color: var(--muted); font-size: .68rem; }
+.box-predict .why input { width: 100%; min-height: 30px; padding: 4px 8px; border: 1px solid #e8c78f; border-radius: 6px; background: #fff; color: var(--ink); font: inherit; font-size: .72rem; }
+.box-predict .why input:disabled { background: #f6f0e4; color: #6b604d; }

@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Desafio 2: configure um exame de ressonância magnética (perfil 1D) para separar duas lesões, sem aliasing, com SNR e tempo dentro do orçamento. Aulas 2, 4 e 6.">
+<title>Desafio 2 · Scanner de RM sob medida</title>
+<link rel="stylesheet" href="../_shared/dashboard.css?v=f634b2ad9d">
+<link rel="stylesheet" href="styles.css?v=89f9f8d6bb">
+</head>
+<body>
+<a class="skip-link" href="#simulador">Ir para o simulador</a>
+<main id="simulador" class="app-shell">
+<header class="topbar">
+  <div class="brand"><b>BIOCOMPLEXITY</b><small>LAB · IB/UNESP</small></div>
+  <div>
+    <p class="eyebrow">Mecânica Quântica · Desafio 2 · Aulas 2, 4 e 6</p>
+    <h1>Scanner de RM sob medida</h1>
+    <p class="subtitle">Separe duas lesões sem aliasing, com SNR suficiente, dentro do tempo e do custo do exame.</p>
+  </div>
+  <div class="status" aria-live="polite"><span>Fase atual</span><strong id="statusTitle"></strong><small id="statusDetail"></small></div>
+</header>
+
+<nav class="tabs" role="tablist" aria-label="Fases do desafio">
+  <button class="active" data-view="missao" role="tab" aria-selected="true"><b>01</b><span>Missão</span></button>
+  <button data-view="lab" role="tab" aria-selected="false"><b>02</b><span>Laboratório</span></button>
+  <button data-view="entrega" role="tab" aria-selected="false"><b>03</b><span>Entrega</span></button>
+</nav>
+
+<section class="hud" aria-label="Orçamento e restrições" aria-live="polite">
+  <div class="hud-item"><span>Semente · nível</span><strong id="hudCase"></strong></div>
+  <div class="hud-item wide"><span>Sessão de magneto (tempo disponível)</span><div class="meter"><i id="hudBar"></i></div><strong id="hudSession"></strong></div>
+  <div class="hud-item"><span>Aquisições</span><strong id="hudAcq"></strong></div>
+  <div class="hud-item"><span>Protocolo atual: tempo</span><strong id="hudTime"></strong></div>
+  <div class="hud-item"><span>Protocolo atual: custo</span><strong id="hudCost"></strong></div>
+  <div class="hud-item"><span>Protocolo atual: SNR</span><strong id="hudSnr"></strong></div>
+</section>
+
+<section class="workspace">
+  <aside class="controls" aria-label="Controles da fase">
+    <div class="panel-title"><h2>Parâmetros</h2><button id="resetBtn" type="button">Reiniciar</button></div>
+
+    <section class="view-controls active" data-controls="missao">
+      <h3>Caso e nível</h3>
+      <label class="state-select"><span>nível</span>
+        <select id="levelSel"><option value="1">Nível 1 — guiado (3 dicas, tolerância larga)</option><option value="2" selected>Nível 2 — livre</option><option value="3">Nível 3 — limite de estimulação apertado</option></select></label>
+      <label class="state-select"><span>semente do caso (um número por dupla)</span><input id="seedIn" type="number" min="1" max="999999" step="1" value="1"></label>
+      <div class="action-bar"><button type="button" id="seedApply">Usar semente</button><button type="button" id="newCase" class="quiet">Novo caso</button></div>
+      <p class="hint">A semente fixa o caso escondido (separação das lesões s e tamanho L do objeto). A mesma semente dá o mesmo caso em qualquer computador. Mudar o nível ou a semente zera a sessão.</p>
+    </section>
+
+    <section class="view-controls" data-controls="lab">
+      <h3>Protocolo de aquisição</h3>
+      <p class="equation">k<sub>max</sub> = γ̄·G·t<sub>read</sub>/2 · Δx = 1/(2k<sub>max</sub>) · FOV = N·Δx</p>
+      <label class="state-select"><span><b>previsão: Δx do primeiro protocolo (mm)</b></span><input id="pred" type="text" inputmode="decimal" placeholder="ex.: 1,5" autocomplete="off"></label>
+      <p class="hint" id="predState"></p>
+      <label class="state-select"><span>campo B₀</span><select id="B0"><option value="0.5">0,5 T</option><option value="1.5" selected>1,5 T</option><option value="3">3 T</option><option value="7">7 T</option></select></label>
+      <label><span><b>gradiente G (mT/m)</b> (variável; máx. 40 do hardware)</span><output id="GOut"></output><input id="G" type="range" min="1" max="40" step=".5" value="10"></label>
+      <label><span>taxa de variação S (T/m/s) · dB/dt ≈ S·r</span><output id="SOut"></output><input id="S" type="range" min="50" max="200" step="5" value="100"></label>
+      <label><span>janela de leitura t<sub>read</sub> (ms)</span><output id="tOut"></output><input id="tRead" type="range" min=".5" max="10" step=".1" value="4"></label>
+      <label><span>amostras N (e linhas de fase)</span><output id="NOut"></output><input id="Nidx" type="range" min="0" max="8" step="1" value="4"></label>
+      <label><span>médias NEX</span><output id="NEXOut"></output><input id="NEX" type="range" min="1" max="16" step="1" value="1"></label>
+      <div class="action-bar"><button type="button" id="locBtn" class="quiet">Localizador</button><button type="button" id="acqBtn">Adquirir</button></div>
+      <p class="hint" id="acqHint"></p>
+      <div id="hintBox" class="hintbox" hidden>
+        <h3>Dicas (Nível 1)</h3>
+        <div class="action-bar"><button type="button" class="quiet" data-hint="0">Dica 1</button><button type="button" class="quiet" data-hint="1">Dica 2</button><button type="button" class="quiet" data-hint="2">Dica 3</button></div>
+        <ol id="hintList" class="hintlist"></ol>
+      </div>
+      <p class="hint">Fixos: ¹H (γ̄ = 42,577 MHz/T), 310 K, r = 0,25 m (borda da região de interesse), TR₀ = 600 ms. O tempo de exame é NEX × N × TR, com TR = TR₀ + t<sub>read</sub> + 2G/S. A estimulação periférica depende de dB/dt = S·r, não de G.</p>
+    </section>
+
+    <section class="view-controls" data-controls="entrega">
+      <h3>Entregar o protocolo</h3>
+      <p class="hint">A entrega usa o protocolo que está nos controles do Laboratório, os valores que você calcular e suas respostas conceituais. Você pode entregar de novo, mas cada entrega adicional custa 5 pontos.</p>
+      <div class="action-bar"><button type="button" id="deliverBtn">Entregar</button></div>
+      <p class="hint" id="deliverHint"></p>
+    </section>
+  </aside>
+
+  <section class="stage" aria-label="Visualizações">
+    <div class="view-stage active" data-stage="missao">
+      <article class="canvas-panel brief">
+        <div class="chart-heading"><div><h2>Briefing</h2><p id="briefSub"></p></div></div>
+        <div id="briefBody" class="prose"></div>
+      </article>
+      <article class="canvas-panel brief">
+        <div class="chart-heading"><div><h2>Restrições da missão</h2><p>o protocolo entregue precisa cumprir todas</p></div></div>
+        <div id="constraintBody" class="prose"></div>
+      </article>
+      <article class="canvas-panel brief">
+        <div class="chart-heading"><div><h2>Como se pontua (0 a 100)</h2><p>a pontuação detalhada aparece na entrega</p></div></div>
+        <div id="scoreRules" class="prose"></div>
+      </article>
+      <article class="canvas-panel brief" id="profCard" hidden>
+        <div class="chart-heading"><div><h2>Modo professor</h2><p>solução de referência deste caso</p></div></div>
+        <div id="profBody" class="prose"></div>
+      </article>
+    </div>
+
+    <div class="view-stage" data-stage="lab">
+      <article class="canvas-panel">
+        <div class="chart-heading"><div><h2 id="mainTitle"></h2><p id="mainSubtitle"></p></div><div id="legend" class="legend"></div></div>
+        <canvas id="mainCanvas" role="img" aria-label="Perfil reconstruído e visão geral do campo de visão"></canvas>
+        <p id="caption" class="caption"></p>
+      </article>
+      <article class="canvas-panel secondary-panel">
+        <div class="chart-heading"><div><h2 id="secondaryTitle"></h2><p id="secondarySubtitle"></p></div></div>
+        <canvas id="secondaryCanvas" role="img" aria-label="Espaço k amostrado e hélice de fase"></canvas>
+        <p id="secondaryCaption" class="caption"></p>
+      </article>
+    </div>
+
+    <div class="view-stage" data-stage="entrega">
+      <article class="canvas-panel brief">
+        <div class="chart-heading"><div><h2>Folha de resposta</h2><p>calcule com as fórmulas da conta aberta; o protocolo vem do Laboratório</p></div></div>
+        <div id="finalCfg" class="prose"></div>
+        <div id="bridgeBody" class="prose"></div>
+        <div class="answers">
+          <label><span>Δx obtido (mm)</span><input id="ansDx" type="text" inputmode="decimal" autocomplete="off"></label>
+          <label><span>FOV (cm)</span><input id="ansFov" type="text" inputmode="decimal" autocomplete="off"></label>
+          <label><span>SNR</span><input id="ansSnr" type="text" inputmode="decimal" autocomplete="off"></label>
+          <label><span>tempo de exame (min)</span><input id="ansT" type="text" inputmode="decimal" autocomplete="off"></label>
+        </div>
+        <h3 class="sub">Qual conceito decidiu?</h3>
+        <p class="hint">A ordem das opções muda a cada entrega. No roteiro, escreva uma frase de razão para cada letra: o professor corrige a frase, a tela só confere a letra.</p>
+        <div id="conceptQs"></div>
+      </article>
+      <article class="canvas-panel brief" id="resultCard" hidden>
+        <div class="chart-heading"><div><h2>Pontuação</h2><p id="resultSub"></p></div><div class="bigscore" id="bigScore"></div></div>
+        <div id="scoreTable" class="prose"></div>
+      </article>
+      <article class="canvas-panel brief" id="auditCard" hidden>
+        <div class="chart-heading"><div><h2>Auditoria</h2><p>a cadeia física do seu protocolo, com os números do caso</p></div></div>
+        <div id="auditBody" class="prose"></div>
+      </article>
+    </div>
+  </section>
+
+  <aside class="analysis" aria-label="Análise quantitativa">
+    <section class="predict"><span id="predictTitle">Preveja antes de mover</span><p id="prediction"></p></section>
+    <section><h2>Conta aberta</h2><div id="calculation" class="calculation"></div></section>
+    <section><h2>Leituras</h2><dl id="metrics"></dl></section>
+    <section><h2 id="conceptTitle">Ideia física</h2><p id="conceptText"></p></section>
+    <section><h2>Investigue</h2><ol id="prompts"></ol></section>
+  </aside>
+</section>
+
+<footer><span>Biocomplexity Lab · material didático · dados sintéticos, modelo didático (ver “Limite do modelo” na conta aberta)</span><span>Instituto de Biociências de Botucatu — UNESP · Depto. de Biofísica e Farmacologia · Prof. Assoc. José L. Rybarczyk-Filho</span></footer>
+</main>
+<script src="physics.js?v=dd0404013f"></script>
+<script src="app.js?v=beb10689eb"></script>
+</body>
+</html>

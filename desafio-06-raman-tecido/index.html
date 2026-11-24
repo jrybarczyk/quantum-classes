@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Desafio 6: que tecido é este? Espectro Raman Stokes e anti-Stokes sintético: atribua bandas a ligações, estime a temperatura pela razão anti-Stokes/Stokes e escolha o laser.">
+<title>Desafio 6 · Que tecido é este? Raman</title>
+<link rel="stylesheet" href="../_shared/dashboard.css?v=f634b2ad9d">
+<link rel="stylesheet" href="styles.css?v=a5d4f52da6">
+</head>
+<body>
+<a class="skip-link" href="#simulador">Ir para o desafio</a>
+<main id="simulador" class="app-shell">
+<header class="topbar">
+  <div class="brand"><b>BIOCOMPLEXITY</b><small>LAB · IB/UNESP</small></div>
+  <div>
+    <p class="eyebrow">Mecânica Quântica · Desafio 6 · Aulas 1, 5 e 10</p>
+    <h1>Que tecido é este? Raman</h1>
+    <p class="subtitle">Bandas de vibração, razão anti-Stokes/Stokes e a escolha do laser, com orçamento de tempo e de dano térmico.</p>
+  </div>
+  <div class="status" aria-live="polite"><span>Aba atual</span><strong id="statusTitle"></strong><small id="statusDetail"></small></div>
+</header>
+
+<nav class="tabs" role="tablist" aria-label="Abas do desafio">
+  <button class="active" data-view="mission" role="tab" aria-selected="true"><b>01</b><span>Missão</span></button>
+  <button data-view="spectrum" role="tab" aria-selected="false"><b>02</b><span>Laboratório: espectro Raman</span></button>
+  <button data-view="laser" role="tab" aria-selected="false"><b>03</b><span>Laboratório: escolha do laser</span></button>
+  <button data-view="deliver" role="tab" aria-selected="false"><b>04</b><span>Entrega</span></button>
+</nav>
+
+<section class="budget" aria-label="Orçamento e caso">
+  <div class="meter"><span>Tempo de integração</span><b id="timeTxt"></b><div class="bar"><i id="timeBar"></i></div></div>
+  <div class="meter"><span>Dano térmico acumulado</span><b id="doseTxt"></b><div class="bar"><i id="doseBar"></i></div></div>
+  <div class="chips"><span id="chipLevel"></span><span id="chipSeed"></span><span id="chipDeliv"></span><span id="chipProf" hidden>modo professor</span></div>
+</section>
+
+<section class="workspace">
+  <aside class="controls" aria-label="Controles da aba">
+    <div class="panel-title"><h2>Controles</h2><button id="resetBtn" type="button">Reiniciar</button></div>
+
+    <section class="view-controls active" data-controls="mission">
+      <h3>Caso</h3>
+      <label class="state-select"><span>nível</span>
+        <select id="levelSel"><option value="1">Nível 1 · guiado (dicas, tolerância larga)</option><option value="2">Nível 2 · livre</option><option value="3">Nível 3 · desafio (orçamento curto, potência limitada)</option></select></label>
+      <label class="state-select"><span>semente do caso (inteiro)</span><input id="seedIn" type="number" min="1" max="999999" step="1" value="1"></label>
+      <div class="action-bar"><button type="button" id="seedApply">Usar semente</button><button type="button" id="newCase" class="quiet">Novo caso</button></div>
+      <h3>Previsão (trava ao registrar)</h3>
+      <fieldset class="concept" id="predQBox"><legend>1. Tecido a 37 °C, laser de 785 nm, banda de 1004 cm⁻¹ (fenilalanina): a razão entre a anti-Stokes e a Stokes é...</legend></fieldset>
+      <label class="state-select"><span>2. depois da escolha: P₁/P₀ da ligação C=O (1700 cm⁻¹) a 37 °C, em unidades de 10⁻⁴</span><input id="predIn" type="number" min="0" step="any" placeholder="libera após a escolha" disabled></label>
+      <div class="action-bar"><button type="button" id="predBtn" disabled>Registrar previsão</button></div>
+      <p class="hint" id="predState"></p>
+      <h3 id="hintTitle">Dicas</h3>
+      <div class="presets" id="hintBtns"></div>
+    </section>
+
+    <section class="view-controls" data-controls="spectrum">
+      <h3>Medida</h3>
+      <label class="state-select"><span>laser</span><select id="laserSel"><option value="532">532 nm (verde)</option><option value="785" selected>785 nm (infravermelho próximo)</option><option value="1064">1064 nm (infravermelho)</option></select></label>
+      <label><span>potência no tecido (mW)</span><output id="powOut"></output><input id="powIn" type="range" min="1" max="200" step="1" value="20"></label>
+      <label><span>tempo de integração (s)</span><output id="timOut"></output><input id="timeIn" type="range" min="1" max="60" step="1" value="20"></label>
+      <div class="action-bar"><button type="button" id="acqBtn">Medir</button><button type="button" id="stopBtn" class="quiet">Parar</button></div>
+      <p class="hint" id="acqState"></p>
+      <label class="state-select"><span>medida mostrada</span><select id="runSel"></select></label>
+      <h3>Termômetro Stokes/anti-Stokes</h3>
+      <p class="equation">T = (hcν̃/k<sub>B</sub>)/[3 ln((ν₀+ν̃)/(ν₀−ν̃)) − ln R]</p>
+      <label><span>banda ν̃ (cm⁻¹)</span><output id="thShiftOut"></output><input id="thShift" type="range" min="300" max="1090" step="2" value="1004"></label>
+      <label><span>janela ±w (cm⁻¹)</span><output id="thWOut"></output><input id="thW" type="range" min="8" max="60" step="1" value="24"></label>
+      <label class="check"><input id="qeChk" type="checkbox" checked><span>corrigir pela resposta espectral QE(λ) do detector (automático no nível 1)</span></label>
+      <div class="action-bar"><button type="button" id="thCursor" class="quiet">ν̃ = cursor</button></div>
+      <div class="slot" id="slotSpectrum"></div>
+    </section>
+
+    <section class="view-controls" data-controls="laser">
+      <h3>Compromisso do laser</h3>
+      <p class="equation">sinal ∝ (ν₀ − ν̃)³ · QE(λ)</p>
+      <label><span>deslocamento ν̃ examinado (cm⁻¹)</span><output id="lsShiftOut"></output><input id="lsShift" type="range" min="400" max="3600" step="20" value="1000"></label>
+      <p class="hint" id="lsInfo"></p>
+      <div class="action-bar"><button type="button" id="goSpec" class="quiet">Ir medir</button></div>
+    </section>
+
+    <section class="view-controls" data-controls="deliver">
+      <h3>Resumo da bancada</h3>
+      <p class="hint" id="deliverSummary"></p>
+      <div class="action-bar"><button type="button" id="deliverBtn">Entregar</button><button type="button" id="newCase2" class="quiet">Novo caso</button></div>
+    </section>
+
+    <div id="roiBlock" class="roiblock">
+      <h3>Cursor e escala</h3>
+      <label><span>cursor (cm⁻¹)</span><output id="curOut"></output><input id="curIn" type="range" min="-1300" max="3700" step="4" value="1004"></label>
+      <div class="seg" role="group" aria-label="Escala vertical"><button type="button" id="scaleLin">linear</button><button type="button" id="scaleLog" class="on">log</button></div>
+      <label class="state-select"><span>faixa mostrada</span><select id="zoomSel"><option value="all">todo o espectro (−1300 a 3700)</option><option value="fp">impressão digital (600 a 1800)</option><option value="as">anti-Stokes (−1300 a −300)</option><option value="hi">alto número de onda (2600 a 3700)</option></select></label>
+      <label class="check"><input id="bgChk" type="checkbox"><span>subtrair a fluorescência (mediana móvel; remove também bandas largas como a da água)</span></label>
+      <label class="check"><input id="linesChk" type="checkbox"><span>marcar as bandas da biblioteca</span></label>
+    </div>
+  </aside>
+
+  <section class="stage" aria-label="Visualizações">
+    <article class="doc-panel view-panel active" data-panel="mission" id="missionDoc"></article>
+    <div class="view-panel" data-panel="lab" id="labPanels">
+      <article class="canvas-panel">
+        <div class="chart-heading"><div><h2 id="mainTitle"></h2><p id="mainSubtitle"></p></div><div id="legend" class="legend"></div></div>
+        <canvas id="mainCanvas" role="img" aria-label="Espectro Raman ou janelas de detecção"></canvas>
+        <p id="caption" class="caption"></p>
+      </article>
+      <article class="canvas-panel secondary-panel">
+        <div class="chart-heading"><div><h2 id="secondaryTitle"></h2><p id="secondarySubtitle"></p></div></div>
+        <canvas id="secondaryCanvas" role="img" aria-label="Gráfico complementar"></canvas>
+        <p id="secondaryCaption" class="caption"></p>
+      </article>
+    </div>
+    <article class="doc-panel view-panel" data-panel="deliver" id="deliverDoc"></article>
+  </section>
+
+  <aside class="analysis" aria-label="Análise quantitativa">
+    <section class="predict"><span>Preveja antes de mover</span><p id="prediction"></p></section>
+    <section><h2>Conta aberta</h2><div id="calculation" class="calculation"></div></section>
+    <section><h2>Leituras</h2><dl id="metrics"></dl></section>
+    <section><h2 id="conceptTitle">Ideia física</h2><p id="conceptText"></p></section>
+    <section><h2>Investigue</h2><ol id="prompts"></ol></section>
+  </aside>
+</section>
+
+<footer><span>Biocomplexity Lab · material didático · dados sintéticos</span><span>Instituto de Biociências de Botucatu — UNESP · Depto. de Biofísica e Farmacologia · Prof. Assoc. José L. Rybarczyk-Filho</span></footer>
+</main>
+<script src="physics.js?v=8902b74659"></script>
+<script src="app.js?v=69b9ac10de"></script>
+</body>
+</html>

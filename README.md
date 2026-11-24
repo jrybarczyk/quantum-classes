@@ -12,11 +12,26 @@ Site publicado: <https://jrybarczyk.github.io/quantum-classes/>
 | 03 | [Aula 3 · Normalização e incerteza](aula-03-normalizacao-corrente/) | Normalizacao, corrente de probabilidade e relacoes de incerteza. |
 | 04 | [Aula 4 · Estados estacionários](aula-04-estados-estacionarios/) | Separacao temporal, estados estacionarios, autovalores e operadores hermitianos. |
 | 05 | [Aula 5 · Poço infinito](aula-05-poco-infinito/) | Espectro, medida de posicao, truque de Fourier, revivencia e fisica medica. |
-| 06 | [Aula 6 · Postulado de medida](aula-06-expansao-medidas/) | Postulado de medida: H, depois x, depois H; media e variancia; degenerescencia com projetor; paridade e espaco k da RM. |
+| 06 | [Aula 6 · Postulado de medida](aula-06-expansao-medidas/) | Caixas e fichas: brackets e operadores; postulado de medida (H, x, H); media e variancia; degenerescencia com projetor; paridade e espaco k da RM. |
 | 07 | [Aula 7 · Degraus e barreiras](aula-07-degraus-barreiras/) | Degrau e barreira de potencial, reflexao, tunelamento, alfa do Ra-223 pelo fator de Gamow e eco de ultrassom. |
 | 08 | [Aula 8 · Poço quadrado finito](aula-08-poco-finito/) | Poco finito: solucao grafica, caudas evanescentes, limite infinito e ponto quantico de CdSe. |
 | 09 | [Aula 9 · Potenciais delta de Dirac](aula-09-potenciais-delta/) | Delta de Dirac: salto de psi', estado ligado, espalhamento, polo e doador raso no HPGe. |
 | 10 | [Aula 10 · Oscilador harmônico](aula-10-oscilador-harmonico/) | Oscilador harmonico: quantizacao por tiro, autofuncoes de Hermite, limite classico e vibracao C=O em tecidos. |
+
+
+## Desafios
+
+Missões com caso escondido (use `?seed=N` para dar um caso a cada dupla), orçamento
+limitado e pontuação de 0 a 100. Combinam conceitos das aulas 1 a 10.
+
+| Desafio | Aplicação | Missão |
+|---:|---|---|
+| D1 | [Desafio 1 · Espectrômetro misterioso](desafio-01-espectrometro/) | Identifique o radionuclideo e a blindagem a partir de um espectro de NaI: bordas Compton, calibracao e atenuacao. |
+| D2 | [Desafio 2 · Scanner de RM sob medida](desafio-02-scanner-rm/) | Configure um exame de RM: espaco k, resolucao, aliasing, SNR e tempo de exame. |
+| D3 | [Desafio 3 · Emissor para imagem profunda](desafio-03-emissor-nir/) | Projete um ponto quantico nucleo/casca para a janela optica do tecido: poco finito e tunelamento na casca. |
+| D4 | [Desafio 4 · Casamento de impedância no ultrassom](desafio-04-ultrassom/) | Case a impedancia do transdutor com o tecido: matriz de transferencia, quarto de onda e fator de Gamow. |
+| D5 | [Desafio 5 · Resfrie o detector de germânio](desafio-05-detector-germanio/) | Escolha temperatura, dopagem e tensao de um detector HPGe: doador raso, ionizacao e portadores intrinsecos. |
+| D6 | [Desafio 6 · Que tecido é este? Raman](desafio-06-raman-tecido/) | Identifique o tecido por espectro Raman: oscilador harmonico, razao Stokes/anti-Stokes e escolha do laser. |
 
 ## Como usar
 

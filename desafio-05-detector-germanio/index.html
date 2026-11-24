@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Desafio 5: resfrie o detector de germânio hiperpuro: doador raso, fator de Boltzmann, corrente de geração, congelamento e depleção, com orçamentos de ensaios e de refrigeração.">
+<title>Desafio 5 · Resfrie o detector de germânio</title>
+<link rel="stylesheet" href="../_shared/dashboard.css?v=f634b2ad9d">
+<link rel="stylesheet" href="styles.css?v=bffe68a99c">
+</head>
+<body>
+<a class="skip-link" href="#simulador">Ir para o simulador</a>
+<main id="simulador" class="app-shell">
+<header class="topbar">
+  <div class="brand"><b>BIOCOMPLEXITY</b><small>LAB · IB/UNESP</small></div>
+  <div>
+    <p class="eyebrow">Mecânica Quântica · Desafio 5<span id="profBadge" class="prof" hidden>modo professor</span></p>
+    <h1>Resfrie o detector de germânio</h1>
+    <p class="subtitle">Escolha temperatura, dopagem e tensão: pouco ruído térmico, doadores ionizados, cristal depletado até o fim e refrigeração que cabe no orçamento.</p>
+  </div>
+  <div class="status" aria-live="polite"><span>Etapa atual</span><strong id="statusTitle"></strong><small id="statusDetail"></small></div>
+</header>
+
+<nav class="tabs" role="tablist" aria-label="Etapas do desafio">
+  <button class="active" data-view="mission" role="tab" aria-selected="true"><b>01</b><span>Missão</span></button>
+  <button data-view="lab" role="tab" aria-selected="false"><b>02</b><span>Laboratório</span></button>
+  <button data-view="deliver" role="tab" aria-selected="false"><b>03</b><span>Entrega</span></button>
+</nav>
+
+<section class="workspace">
+  <aside class="controls" aria-label="Controles da etapa">
+    <div class="panel-title"><h2>Painel</h2><button id="resetBtn" type="button">Reiniciar</button></div>
+
+    <section class="view-controls active" data-controls="mission">
+      <h3>Nível</h3>
+      <div class="seg" id="levelSeg" role="group" aria-label="Nível"><button type="button" data-level="1">1 · guiado</button><button type="button" data-level="2">2 · livre</button><button type="button" data-level="3">3 · bônus</button></div>
+      <p class="hint">Trocar de nível reinicia o caso (previsão, orçamento e dicas).</p>
+      <h3>Caso</h3>
+      <label class="field"><span>semente (inteiro de 1 a 999999)</span><input id="seedInput" type="text" inputmode="numeric" value="1"></label>
+      <div class="action-bar"><button type="button" id="seedApply">Usar semente</button><button type="button" id="newCase" class="quiet">Novo caso</button></div>
+      <p class="hint">Cada dupla recebe uma semente. A mesma semente gera sempre o mesmo caso.</p>
+      <h3>Previsão qualitativa</h3>
+      <div id="qualBox"></div>
+      <div class="action-bar"><button type="button" id="qualBtn">Registrar previsão</button></div>
+      <p class="hint" id="qualState"></p>
+    </section>
+
+    <section class="view-controls" data-controls="lab">
+      <div class="seg" id="subSeg" role="group" aria-label="Painel do laboratório" style="--n:2"><button type="button" data-sub="1" class="on">1 · Depleção e C–V (comece aqui)</button><button type="button" data-sub="2">2 · Portadores e janela</button></div>
+      <div class="predict-box"><b>Previsão numérica (trava no primeiro ensaio)</b><p id="predQuestion"></p>
+        <label class="field"><span>sua previsão (K)</span><input id="predInput" type="text" inputmode="decimal" placeholder="ex.: 130"></label>
+        <span class="state" id="predState"></span></div>
+      <div class="meter" id="budgetMeter"><span id="budgetText"></span><div class="bar"><i id="budgetFill"></i></div></div>
+      <div class="meter" id="powerMeter"><span id="powerText"></span><div class="bar"><i id="powerFill"></i></div></div>
+      <h3>Condições de operação</h3>
+      <p class="equation">V<sub>dep</sub> = eN<sub>D</sub>d²/(2ε)</p>
+      <label><span>temperatura T (K)</span><output id="tkOut"></output><input id="tk" type="range" min="5" max="300" step="1" value="77"></label>
+      <label><span>dopagem N<sub>D</sub> (cm⁻³, escala log)</span><output id="lndOut"></output><input id="lnd" type="range" min="9" max="12.5" step=".05" value="10"></label>
+      <label><span>tensão V (V)</span><output id="vvOut"></output><input id="vv" type="range" min="0" max="6000" step="50" value="2000"></label>
+      <div class="action-bar"><button type="button" id="runBtn">Rodar ensaio C–V</button><button type="button" class="quiet" id="resetLab">Valores iniciais</button></div>
+      <table class="synth-log" id="synthLog" aria-label="Registro de ensaios"></table>
+      <div id="hintBlock" hidden>
+        <h3>Dicas <small>(nível 1; cada uma custa pontos)</small></h3>
+        <div class="action-bar"><button type="button" id="hintBtn">Pedir dica</button></div>
+        <div id="hintList"></div>
+      </div>
+    </section>
+
+    <section class="view-controls" data-controls="deliver">
+      <h3>Condições de operação entregues</h3>
+      <label class="field"><span>temperatura T (K)</span><input id="ansT" type="text" inputmode="decimal" placeholder="ex.: 120"></label>
+      <label class="field"><span>dopagem N<sub>D</sub> (em unidades de 10¹⁰ cm⁻³)</span><input id="ansND" type="text" inputmode="decimal" placeholder="ex.: 1,5"></label>
+      <label class="field"><span>tensão V (V)</span><input id="ansV" type="text" inputmode="decimal" placeholder="ex.: 3000"></label>
+      <h3>Leituras do seu projeto</h3>
+      <label class="field"><span>espessura d do cristal (cm), do ensaio C–V</span><input id="repD" type="text" inputmode="decimal"></label>
+      <label class="field"><span>V<sub>dep</sub> do seu projeto (V)</span><input id="repV" type="text" inputmode="decimal"></label>
+      <label class="field"><span>log₁₀(I<sub>ger</sub>/pA) a T de operação</span><input id="repI" type="text" inputmode="decimal"></label>
+      <h3>Qual conceito decidiu?</h3>
+      <div id="conceptItems"></div>
+      <div class="action-bar"><button type="button" id="fromLab" class="quiet">Copiar projeto do laboratório</button><button type="button" id="deliverBtn">Entregar</button></div>
+      <p class="hint" id="deliverHint"></p>
+    </section>
+  </aside>
+
+  <section class="stage" aria-label="Visualizações">
+    <article class="canvas-panel" id="mainPanel">
+      <div class="chart-heading"><div><h2 id="mainTitle"></h2><p id="mainSubtitle"></p></div><div id="legend" class="legend"></div></div>
+      <canvas id="mainCanvas" role="img" aria-label="Visualização principal da etapa"></canvas>
+      <p id="caption" class="caption"></p>
+    </article>
+    <article class="canvas-panel doc-panel" id="docPanel"></article>
+    <article class="canvas-panel secondary-panel" id="secPanel">
+      <div class="chart-heading"><div><h2 id="secondaryTitle"></h2><p id="secondarySubtitle"></p></div></div>
+      <canvas id="secondaryCanvas" role="img" aria-label="Visualização complementar"></canvas>
+      <p id="secondaryCaption" class="caption"></p>
+    </article>
+  </section>
+
+  <aside class="analysis" aria-label="Análise quantitativa">
+    <section class="predict"><span>Preveja antes de mover</span><p id="prediction"></p></section>
+    <section><h2>Conta aberta</h2><div id="calculation" class="calculation"></div></section>
+    <section><h2>Leituras</h2><dl id="metrics"></dl></section>
+    <section><h2 id="conceptTitle">Ideia física</h2><p id="conceptText"></p></section>
+    <section><h2>Investigue</h2><ol id="prompts"></ol></section>
+  </aside>
+</section>
+
+<footer><span>Biocomplexity Lab · material didático</span><span>Instituto de Biociências de Botucatu — UNESP · Depto. de Biofísica e Farmacologia · Prof. Assoc. José L. Rybarczyk-Filho</span></footer>
+</main>
+<script src="physics.js?v=56b517ebce"></script>
+<script src="app.js?v=34343b22e6"></script>
+</body>
+</html>

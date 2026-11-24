@@ -1,0 +1,62 @@
+/* Complementos do desafio sobre ../_shared/dashboard.css (três abas, formulário, pontuação, auditoria). */
+.tabs { grid-template-columns: repeat(3, 1fr); }
+.eyebrow .prof { margin-left: 8px; padding: 2px 7px; border-radius: 10px; background: #c65c4b; color: #fff; letter-spacing: .06em; }
+.equation { margin: 4px 0 12px; padding: 9px 10px; border-left: 3px solid var(--dark); border-radius: 0 6px 6px 0; background: #f4f7f2; font-family: Georgia, serif; font-size: .82rem; }
+.calculation small { display: block; margin-top: 4px; color: var(--muted); font-size: .7rem; }
+.hint { margin: 10px 0 0; color: var(--muted); font-size: .68rem; line-height: 1.45; }
+.seg { display: grid; grid-template-columns: repeat(var(--n, 3), 1fr); gap: 6px; margin: 6px 0 4px; }
+.seg button { min-height: 32px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--muted); font-size: .7rem; cursor: pointer; }
+.seg button.on { border-color: var(--dark); background: #f4faef; color: var(--ink); font-weight: 700; }
+.seg button:disabled { opacity: .55; cursor: not-allowed; }
+.field { display: grid; gap: 4px; margin: 10px 0; font-size: .72rem; color: var(--muted); }
+.field input[type=text], .field select { width: 100%; min-height: 34px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); }
+.field input[type=text]:disabled { background: #eef2ee; color: var(--muted); }
+.field .unit { font-size: .66rem; }
+.view-controls .field { grid-template-columns: 1fr; }
+.view-controls h3 small { color: var(--muted); font-weight: 400; font-size: .66rem; }
+.predict-box { margin: 10px 0 4px; padding: 10px; border: 1px solid #e8c78f; border-radius: 7px; background: #fff9ef; }
+.predict-box b { color: #a66c17; font-size: .64rem; letter-spacing: .09em; text-transform: uppercase; }
+.predict-box p { margin: 5px 0 6px; font-size: .72rem; line-height: 1.4; }
+.predict-box .state { font-size: .66rem; color: var(--muted); }
+.meter { margin: 12px 0 4px; font-size: .72rem; }
+.meter .bar { height: 9px; margin-top: 5px; border-radius: 5px; background: #e6ece6; overflow: hidden; }
+.meter .bar i { display: block; height: 100%; background: linear-gradient(90deg, #83c44e, #619b60); transition: width .3s; }
+.meter.low .bar i { background: linear-gradient(90deg, #e9a23b, #c65c4b); }
+.synth-log { width: 100%; margin-top: 8px; border-collapse: collapse; font-size: .64rem; }
+.synth-log th, .synth-log td { padding: 3px 4px; border-bottom: 1px dashed var(--line); text-align: right; }
+.synth-log th:first-child, .synth-log td:first-child { text-align: left; }
+.hintbox { margin: 8px 0 0; padding: 8px 10px; border-left: 3px solid #e9a23b; background: #fff9ef; font-size: .68rem; line-height: 1.4; }
+.choice { margin: 12px 0; padding: 0; border: 0; font-size: .7rem; }
+.choice legend { padding: 0; font-weight: 700; color: var(--ink); line-height: 1.35; }
+.view-controls .choice label { display: grid; grid-template-columns: 18px 1fr; gap: 6px; align-items: start; margin: 7px 0; color: var(--muted); line-height: 1.35; }
+.view-controls .choice input { grid-column: auto; width: auto; margin-top: 2px; }
+.doc-panel { padding: 18px 20px; }
+.doc-panel h2 { margin-bottom: 6px; }
+.doc-panel h3 { margin: 16px 0 6px; font-size: .9rem; }
+.doc-panel p, .doc-panel li { font-size: .78rem; line-height: 1.55; color: #3d4944; }
+.doc-panel table { width: 100%; margin: 8px 0; border-collapse: collapse; font-size: .74rem; }
+.doc-panel th, .doc-panel td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.doc-panel td.num, .doc-panel th.num { text-align: right; white-space: nowrap; }
+.doc-panel .ok { color: #3f7d3a; font-weight: 700; }
+.doc-panel .bad { color: #b0463a; font-weight: 700; }
+.level-card { margin: 8px 0; padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; background: #fbfcfa; }
+.level-card.on { border-color: var(--dark); background: #f4faef; }
+.level-card b { color: var(--dark); }
+.score-big { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; margin: 6px 0 10px; }
+.score-big strong { font-size: 2.6rem; line-height: 1; color: var(--dark); }
+.score-big span { color: var(--muted); font-size: .76rem; }
+.audit-row { margin: 10px 0; padding: 9px 12px; border-left: 3px solid var(--dark); border-radius: 0 6px 6px 0; background: #f4f7f2; }
+.audit-row b { font-size: .8rem; }
+.audit-row .f { display: block; margin: 3px 0; font-family: Georgia, serif; font-size: .76rem; color: #2f3b36; }
+.audit-row .c { display: block; font-size: .74rem; line-height: 1.5; color: #3d4944; }
+.limit-band { margin: 14px 0 4px; padding: 10px 12px; border: 1px solid #e8c78f; border-radius: 8px; background: #fff9ef; font-size: .74rem; line-height: 1.5; }
+.limit-band b { color: #a66c17; }
+.ref-box { margin: 10px 0; padding: 10px 12px; border: 2px dashed #c65c4b; border-radius: 8px; background: #fff6f4; font-size: .74rem; line-height: 1.5; }
+.note { color: var(--muted); font-size: .7rem; }
+@media (max-width: 1100px) { .tabs { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 760px) { .tabs { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+/* Celular: o painel secundário não é achatado pelo teto de altura do dashboard (a altura do canvas já tem mínimo). */
+@media (max-width: 600px) { .secondary-panel canvas { max-height: none; } .doc-panel { padding: 14px 12px; } .doc-panel table { font-size: .68rem; } }
+[hidden] { display: none !important; }
+/* Desafio 3 */
